@@ -1,0 +1,3 @@
+/home/f1kus/dev/threadcraft/build/CMakeFiles/minecraft_clone.dir
+/home/f1kus/dev/threadcraft/build/CMakeFiles/edit_cache.dir
+/home/f1kus/dev/threadcraft/build/CMakeFiles/rebuild_cache.dir

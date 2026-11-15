@@ -1,0 +1,80 @@
+[
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/main.cpp.o -c /home/f1kus/dev/threadcraft/src/main.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/main.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/main.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/core/ThreadPool.cpp.o -c /home/f1kus/dev/threadcraft/src/core/ThreadPool.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/core/ThreadPool.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/core/ThreadPool.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/core/TaskQueue.cpp.o -c /home/f1kus/dev/threadcraft/src/core/TaskQueue.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/core/TaskQueue.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/core/TaskQueue.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/world/Block.cpp.o -c /home/f1kus/dev/threadcraft/src/world/Block.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/world/Block.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/world/Block.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/world/BlockRegistry.cpp.o -c /home/f1kus/dev/threadcraft/src/world/BlockRegistry.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/world/BlockRegistry.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/world/BlockRegistry.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/world/Chunk.cpp.o -c /home/f1kus/dev/threadcraft/src/world/Chunk.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/world/Chunk.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/world/Chunk.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/world/World.cpp.o -c /home/f1kus/dev/threadcraft/src/world/World.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/world/World.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/world/World.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/world/WorldGenerator.cpp.o -c /home/f1kus/dev/threadcraft/src/world/WorldGenerator.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/world/WorldGenerator.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/world/WorldGenerator.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/meshing/GreedyMeshBuilder.cpp.o -c /home/f1kus/dev/threadcraft/src/meshing/GreedyMeshBuilder.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/meshing/GreedyMeshBuilder.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/meshing/GreedyMeshBuilder.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/render/Renderer.cpp.o -c /home/f1kus/dev/threadcraft/src/render/Renderer.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/render/Renderer.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/render/Renderer.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/render/TextureAtlas.cpp.o -c /home/f1kus/dev/threadcraft/src/render/TextureAtlas.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/render/TextureAtlas.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/render/TextureAtlas.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/render/Camera.cpp.o -c /home/f1kus/dev/threadcraft/src/render/Camera.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/render/Camera.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/render/Camera.cpp.o"
+},
+{
+  "directory": "/home/f1kus/dev/threadcraft/build",
+  "command": "/usr/bin/c++ -DASSETS_DIR=\\\"/home/f1kus/dev/threadcraft/assets\\\" -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP -I/home/f1kus/dev/threadcraft/src -g -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -O3 -march=native -Wno-unused-parameter -o CMakeFiles/minecraft_clone.dir/src/player/Player.cpp.o -c /home/f1kus/dev/threadcraft/src/player/Player.cpp",
+  "file": "/home/f1kus/dev/threadcraft/src/player/Player.cpp",
+  "output": "CMakeFiles/minecraft_clone.dir/src/player/Player.cpp.o"
+}
+]
