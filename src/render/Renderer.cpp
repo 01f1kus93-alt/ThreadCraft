@@ -177,7 +177,7 @@ void Renderer::drawPlayerArm(const Texture2D& tex, float swingAngle) const {
     const int sw = GetScreenWidth();
     const int sh = GetScreenHeight();
 
-    const int armW = sh / 4;
+    const int armW = sh / 6;       // 1:3 ratio (Steve arm 4x12 px)
     const int armH = sh / 2;
     const int armX = sw - armW * 2 / 3;
     const int armY = sh - armH * 3 / 4;

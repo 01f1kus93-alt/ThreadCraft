@@ -63,7 +63,7 @@ int main() {
     ParticleSystem particles;
     ItemEntityManager items;
 
-    player.camera().get().position = { 16.0f, 60.0f, 16.0f };
+    player.camera().get().position = { 16.0f, 120.0f, 16.0f };
     player.camera().setLookAngles(0.0f, -0.5f);
 
     bool quitRequested = false;
