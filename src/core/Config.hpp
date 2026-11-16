@@ -19,7 +19,7 @@ inline constexpr int  SEED                   = 1337;
 
 // ─────────────── Terrain ───────────────
 inline constexpr int   TERRAIN_BASE_HEIGHT = 64;
-inline constexpr float TERRAIN_AMPLITUDE   = 28.0f;
+inline constexpr float TERRAIN_AMPLITUDE   = 16.0f;
 inline constexpr float TERRAIN_NOISE_SCALE = 0.02f;
 inline constexpr int   SEA_LEVEL           = 55;
 
@@ -50,7 +50,7 @@ inline constexpr int ATLAS_TILE_PAD  = 8;    // Texture-bleeding padding (px). P
 inline constexpr int STACK_MAX = 64;   // max items per stack
 
 // ─────────────── Block breaking ───────────────
-inline constexpr float BREAK_TIME_MULT = 1.5f;   // break time = hardness * BREAK_TIME_MULT (seconds)
+inline constexpr float BREAK_TIME_MULT = 1.2f;   // break time = hardness * BREAK_TIME_MULT (seconds)
 
 // ─────────────── Particles ───────────────
 inline constexpr float PARTICLE_GRAVITY = -18.0f;
