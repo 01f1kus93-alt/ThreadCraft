@@ -24,6 +24,8 @@ public:
     static constexpr BlockID COAL_ORE  = 11;
     static constexpr BlockID IRON_ORE  = 12;
     static constexpr BlockID GOLD_ORE  = 13;
+    static constexpr BlockID BIRCH_LOG = 14;
+    static constexpr BlockID BIRCH_LEAVES = 15;
 
 private:
     static std::array<BlockType, 256> s_blocks;

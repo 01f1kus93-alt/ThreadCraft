@@ -16,13 +16,28 @@ namespace {
         return h ^ (h >> 16);
     }
 
-    void placeTree(Chunk& chunk, int lx, int baseLy, int lz, uint32_t treeSeed) noexcept {
+    // ─────────────── Биомы ───────────────
+    constexpr int   BIOME_MOUNTAIN_MIN_HEIGHT = 90;   // выше → горный биом
+    constexpr int   BIOME_MOUNTAIN_STONE_TOP  = 100;  // выше → каменная вершина
+    constexpr float MOUNTAIN_AMP_MULT         = 1.5f; // усиление амплитуды гор
+
+    // FBm-шум в FastNoiseLite фактически даёт ~[-0.72, 0.61], а не [-1, 1],
+    // поэтому рельеф не достигает проектного диапазона (TERRAIN_AMPLITUDE=32).
+    // Нормализуем его, чтобы горы/океан появлялись согласно заданным порогам.
+    constexpr float TERRAIN_NOISE_NORMALIZE = 1.6f;
+
+    constexpr float BIOME_TEMP_DESERT_HIGH  = 0.30f;  // высокая температура
+    constexpr float BIOME_HUMID_DESERT_LOW  = -0.20f; // низкая влажность
+    constexpr float BIOME_HUMID_FOREST_HIGH = 0.30f;  // высокая влажность
+
+    void placeTree(Chunk& chunk, int lx, int baseLy, int lz, uint32_t treeSeed,
+                   BlockID logBlock, BlockID leavesBlock) noexcept {
         const int trunkHeight = 4 + (treeSeed % 3);
 
         for (int i = 1; i <= trunkHeight; ++i) {
             const int ty = baseLy + i;
             if (ty >= 0 && ty < config::CHUNK_SIZE_Y) {
-                chunk.set(lx, ty, lz, BlockRegistry::LOG);
+                chunk.set(lx, ty, lz, logBlock);
             }
         }
 
@@ -57,7 +72,7 @@ namespace {
                         if ((h % 5) == 0) continue;
                     }
 
-                    chunk.set(nx, ly, nz, BlockRegistry::LEAVES);
+                    chunk.set(nx, ly, nz, leavesBlock);
                 }
             }
         }
@@ -105,11 +120,36 @@ WorldGenerator::WorldGenerator(uint32_t seed)
     m_noiseOre.SetFractalType(FastNoiseLite::FractalType_FBm);
     m_noiseOre.SetFractalOctaves(3);
     m_noiseOre.SetFrequency(0.09f);
+
+    m_noiseBiome.SetSeed(seed + 6000);
+    m_noiseBiome.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    m_noiseBiome.SetFrequency(0.005f);
 }
 
 int WorldGenerator::heightAt(int wx, int wz) const noexcept {
-    const float n = m_noise2D.GetNoise((float)wx, (float)wz);
-    return config::TERRAIN_BASE_HEIGHT + (int)(n * config::TERRAIN_AMPLITUDE);
+    const float n = m_noise2D.GetNoise((float)wx, (float)wz) * TERRAIN_NOISE_NORMALIZE;
+
+    // Горы: усиливаем рельеф. Чтобы на границе горного биома не образовывалась
+    // вертикальная стена, амплитуда плавно растёт до ×1.5 к самым высоким пикам.
+    const float mountainNoise =
+        (float)(BIOME_MOUNTAIN_MIN_HEIGHT - config::TERRAIN_BASE_HEIGHT) / config::TERRAIN_AMPLITUDE;
+    const float t   = std::clamp((n - mountainNoise) / (1.0f - mountainNoise), 0.0f, 1.0f);
+    const float amp = config::TERRAIN_AMPLITUDE * (1.0f + (MOUNTAIN_AMP_MULT - 1.0f) * t);
+
+    return config::TERRAIN_BASE_HEIGHT + (int)(n * amp);
+}
+
+Biome WorldGenerator::getBiome(int wx, int wz, int height) const noexcept {
+    if (height < config::SEA_LEVEL - 5) return Biome::Ocean;
+    if (height > BIOME_MOUNTAIN_MIN_HEIGHT) return Biome::Mountains;
+
+    const float temperature = m_noiseBiome.GetNoise((float)wx, (float)wz);
+    const float humidity    = m_noiseBiome.GetNoise((float)(wx + 3000), (float)(wz - 2000));
+
+    if (temperature > BIOME_TEMP_DESERT_HIGH && humidity < BIOME_HUMID_DESERT_LOW)
+        return Biome::Desert;
+    if (humidity > BIOME_HUMID_FOREST_HIGH) return Biome::BirchForest;
+    return Biome::Plains;
 }
 
 int WorldGenerator::bedrockTopAt(int wx, int wz) const noexcept {
@@ -123,7 +163,9 @@ void WorldGenerator::generate(Chunk& chunk) const {
     const int baseY = c.y * config::CHUNK_SIZE_Y;
     const int baseZ = c.z * config::CHUNK_SIZE_Z;
 
-    constexpr int TERRAIN_MAX_Y = config::TERRAIN_BASE_HEIGHT + (int)config::TERRAIN_AMPLITUDE + 1;
+    constexpr int TERRAIN_MAX_Y = config::TERRAIN_BASE_HEIGHT +
+                                  (int)(config::TERRAIN_AMPLITUDE * MOUNTAIN_AMP_MULT *
+                                        TERRAIN_NOISE_NORMALIZE) + 1;
     if (baseY > TERRAIN_MAX_Y) return;
     if (baseY + config::CHUNK_SIZE_Y <= 0) return;
 
@@ -133,6 +175,7 @@ void WorldGenerator::generate(Chunk& chunk) const {
             const int wz = baseZ + lz;
             const int h  = heightAt(wx, wz);
             const int btop = bedrockTopAt(wx, wz);
+            const Biome biome = getBiome(wx, wz, h);
 
             for (int ly = 0; ly < config::CHUNK_SIZE_Y; ++ly) {
                 const int wy = baseY + ly;
@@ -140,7 +183,7 @@ void WorldGenerator::generate(Chunk& chunk) const {
 
                 BlockID block = BLOCK_AIR;
 
-                // Стратиграфия
+                // Стратиграфия (с учётом биома)
                 if (wy <= btop) {
                     block = BlockRegistry::BEDROCK;
                 } else if (wy <= 15) {
@@ -148,9 +191,16 @@ void WorldGenerator::generate(Chunk& chunk) const {
                 } else if (wy < h - 4) {
                     block = BlockRegistry::STONE;
                 } else if (wy < h) {
-                    block = BlockRegistry::DIRT;
+                    // 4 блока под поверхностью
+                    block = (biome == Biome::Desert) ? BlockRegistry::SAND : BlockRegistry::DIRT;
                 } else if (wy == h) {
-                    block = (h > config::SEA_LEVEL) ? BlockRegistry::GRASS : BlockRegistry::SAND;
+                    if (biome == Biome::Desert) {
+                        block = BlockRegistry::SAND;
+                    } else if (biome == Biome::Mountains && h > BIOME_MOUNTAIN_STONE_TOP) {
+                        block = BlockRegistry::STONE;
+                    } else {
+                        block = (h > config::SEA_LEVEL) ? BlockRegistry::GRASS : BlockRegistry::SAND;
+                    }
                 } else if (wy > h && wy <= config::SEA_LEVEL) {
                     block = BlockRegistry::WATER;
                 }
@@ -237,6 +287,9 @@ void WorldGenerator::generate(Chunk& chunk) const {
 
             if (h <= config::SEA_LEVEL || h >= config::CHUNK_SIZE_Y) continue;
 
+            const Biome biome = getBiome(wx, wz, h);
+            if (biome == Biome::Desert) continue;
+
             const BlockID surfaceBlock = chunk.getFast(lx, h, lz);
             if (surfaceBlock != BlockRegistry::GRASS) continue;
 
@@ -247,7 +300,14 @@ void WorldGenerator::generate(Chunk& chunk) const {
 
             if (h + trunkHeight + 2 >= config::CHUNK_SIZE_Y) continue;
 
-            placeTree(chunk, lx, h, lz, treeSeed);
+            BlockID logBlock = BlockRegistry::LOG;
+            BlockID leavesBlock = BlockRegistry::LEAVES;
+            if (biome == Biome::BirchForest && (treeSeed % 100) < 80) {
+                logBlock    = BlockRegistry::BIRCH_LOG;
+                leavesBlock = BlockRegistry::BIRCH_LEAVES;
+            }
+
+            placeTree(chunk, lx, h, lz, treeSeed, logBlock, leavesBlock);
         }
     }
 }

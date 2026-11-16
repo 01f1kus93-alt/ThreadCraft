@@ -5,6 +5,14 @@
 
 namespace mc {
 
+enum class Biome {
+    Plains,
+    Mountains,
+    Desert,
+    Ocean,
+    BirchForest,
+};
+
 class WorldGenerator {
 public:
     explicit WorldGenerator(uint32_t seed);
@@ -12,6 +20,7 @@ public:
     void generate(Chunk& chunk) const;
     int heightAt(int wx, int wz) const noexcept;
     int bedrockTopAt(int wx, int wz) const noexcept;
+    Biome getBiome(int wx, int wz, int height) const noexcept;
 
 private:
     uint32_t m_seed;
@@ -27,6 +36,9 @@ private:
     
     // Руды
     FastNoiseLite m_noiseOre;
+
+    // Биомы (температура/влажность)
+    FastNoiseLite m_noiseBiome;
 };
 
 } // namespace mc

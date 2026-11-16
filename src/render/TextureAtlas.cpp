@@ -12,22 +12,24 @@ namespace {
     const Color kLeavesTint = { 0x77, 0xAB, 0x2F, 255 };
     const Color kWaterTint  = { 63, 118, 228, 255 };
 
-    struct TileFile { int index; const char* file; };
+    struct TileFile { int index; const char* file; const char* fallback; };
 
     constexpr TileFile TILE_FILES[] = {
-        {0, "stone.png"},
-        {1, "dirt.png"},
-        {2, "grass_block_top.png"},
-        {3, "grass_block_side.png"},
-        {5, "deepslate.png"},
-        {6, "bedrock.png"},
-        {7, "water_still.png"},
-        {8, "sand.png"},
-        {9, "oak_log.png"},
-        {10, "oak_leaves.png"},
-        {11, "coal_ore.png"},
-        {12, "iron_ore.png"},
-        {13, "deepslate_gold_ore.png"},
+        {0, "stone.png", nullptr},
+        {1, "dirt.png", nullptr},
+        {2, "grass_block_top.png", nullptr},
+        {3, "grass_block_side.png", nullptr},
+        {5, "deepslate.png", nullptr},
+        {6, "bedrock.png", nullptr},
+        {7, "water_still.png", nullptr},
+        {8, "sand.png", nullptr},
+        {9, "oak_log.png", nullptr},
+        {10, "oak_leaves.png", nullptr},
+        {11, "coal_ore.png", nullptr},
+        {12, "iron_ore.png", nullptr},
+        {13, "deepslate_gold_ore.png", nullptr},
+        {14, "birch_log.png", "oak_log.png"},
+        {15, "birch_leaves.png", "oak_leaves.png"},
     };
 
     void bakeGrayscaleTint(Image& img, Color tint) noexcept {
@@ -115,6 +117,12 @@ bool TextureAtlas::load(const std::string& blockDir) {
     for (const auto& tf : TILE_FILES) {
         std::string path = blockDir + "/" + tf.file;
         Image tile = LoadImage(path.c_str());
+        if (tile.data == nullptr && tf.fallback != nullptr) {
+            TraceLog(LOG_WARNING, "TextureAtlas: '%s' not found, using fallback '%s'",
+                     tf.file, tf.fallback);
+            std::string fallbackPath = blockDir + "/" + tf.fallback;
+            tile = LoadImage(fallbackPath.c_str());
+        }
         if (tile.data == nullptr) {
             TraceLog(LOG_ERROR, "TextureAtlas: failed to load '%s'", path.c_str());
             UnloadImage(atlas);

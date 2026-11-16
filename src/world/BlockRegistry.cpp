@@ -39,6 +39,10 @@ void BlockRegistry::init() {
     s_blocks[COAL_ORE] = BlockType{ COAL_ORE, "coal_ore", true, true, false, allFaces(11), 3.0f };
     s_blocks[IRON_ORE] = BlockType{ IRON_ORE, "iron_ore", true, true, false, allFaces(12), 3.0f };
     s_blocks[GOLD_ORE] = BlockType{ GOLD_ORE, "gold_ore", true, true, false, allFaces(13), 3.0f };
+
+    // Берёза
+    s_blocks[BIRCH_LOG]    = BlockType{ BIRCH_LOG,    "birch_log",    true,  true, false, allFaces(14), 2.0f };
+    s_blocks[BIRCH_LEAVES] = BlockType{ BIRCH_LEAVES, "birch_leaves", false, true, true,  allFaces(15), 0.2f };
 }
 
 const BlockType& BlockRegistry::get(BlockID id) noexcept {
