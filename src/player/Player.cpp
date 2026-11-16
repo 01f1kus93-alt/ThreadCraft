@@ -11,27 +11,7 @@
 namespace mc {
 
 bool Player::load() {
-    const bool breakerOk = m_breaker.load();
-
-    // Player skin for the first-person arm. Prefer Steve (4px arm), fall back
-    // to Alex wide/slim, otherwise draw a procedural rectangle.
-    const char* skinPaths[] = {
-        "assets/minecraft/textures/entity/player/wide/steve.png",
-        "assets/minecraft/textures/entity/player/wide/alex.png",
-        "assets/minecraft/textures/entity/player/slim/alex.png",
-    };
-    for (const char* path : skinPaths) {
-        m_skinTex = LoadTexture(path);
-        if (m_skinTex.id != 0) {
-            SetTextureFilter(m_skinTex, TEXTURE_FILTER_POINT);
-            break;
-        }
-    }
-    if (m_skinTex.id == 0) {
-        TraceLog(LOG_WARNING, "Player skin not found, using procedural arm");
-    }
-
-    return breakerOk;
+    return m_breaker.load();
 }
 void Player::setGameMode(GameMode m) noexcept {
     m_gameMode = m;
@@ -206,6 +186,20 @@ void Player::respawn() noexcept {
     m_camera.setPosition({ m_feetPos.x, m_feetPos.y + m_eyeHeight, m_feetPos.z });
 }
 
+bool Player::blockIntersectsPlayer(int wx, int wy, int wz) const noexcept {
+    const float hw = m_playerWidth * 0.5f;
+    const float minX = m_feetPos.x - hw;
+    const float maxX = m_feetPos.x + hw;
+    const float minY = m_feetPos.y;
+    const float maxY = m_feetPos.y + m_playerHeight;
+    const float minZ = m_feetPos.z - hw;
+    const float maxZ = m_feetPos.z + hw;
+    // Block occupies [wx, wx+1] × [wy, wy+1] × [wz, wz+1]
+    return (wx + 1.0f > minX && wx < maxX) &&
+           (wy + 1.0f > minY && wy < maxY) &&
+           (wz + 1.0f > minZ && wz < maxZ);
+}
+
 bool Player::handleInteraction(float dt, World& world, ParticleSystem& particles,
                                ItemEntityManager& items, bool gameplayEnabled) {
     // Crosshair ray, computed once per frame.
@@ -254,7 +248,7 @@ bool Player::handleInteraction(float dt, World& world, ParticleSystem& particles
             const int pz = hit.wz + hit.nz;
             const BlockID target = world.getBlock(px, py, pz);
             const bool replaceable = (target == BLOCK_AIR) || !BlockRegistry::get(target).isSolid;
-            if (replaceable) {
+            if (replaceable && !blockIntersectsPlayer(px, py, pz)) {
                 world.setBlock(px, py, pz, sel.id);
                 if (!creative) {
                     ItemStack& s = m_inventory.hotbar(m_inventory.selected());

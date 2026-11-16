@@ -27,8 +27,7 @@ public:
     void setGameMode(GameMode m) noexcept;
     bool isFlying() const noexcept { return m_flying; }
 
-    const Texture2D& skinTexture() const noexcept { return m_skinTex; }
-    float swingAngle() const noexcept { return m_swingAngle; }
+    // skinTexture() and swingAngle() removed — first-person arm no longer rendered
 
     float health() const noexcept { return m_health; }
     void  damage(float amount) noexcept;
@@ -42,6 +41,7 @@ public:
 private:
     void applyPhysics(float dt, World& world);
     bool collidesWithWorld(const World& world) const;
+    bool blockIntersectsPlayer(int wx, int wy, int wz) const noexcept;
 
     FlyCamera    m_camera;
     Inventory    m_inventory;
@@ -58,10 +58,7 @@ private:
     float    m_playerHeight = 1.8f;
     float    m_playerWidth = 0.6f;
 
-    Texture2D m_skinTex{};
-    float     m_swingAngle = 0.0f;
-    float     m_swingProgress = 1.0f;
-    float     m_swingCooldown = 0.0f;
+    // m_skinTex, m_swingAngle, m_swingProgress, m_swingCooldown removed
 
     float m_health = 20.0f;
     float m_fallDistance = 0.0f;

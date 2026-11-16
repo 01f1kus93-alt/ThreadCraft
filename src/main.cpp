@@ -139,15 +139,10 @@ int main() {
 
         EndMode3D();
 
-        // ── First-person arm (2D sprite, behind hotbar/HUD) ──
-        if (gameplay) {
-            renderer.drawPlayerArm(player.skinTexture(), player.swingAngle());
-        }
-
         // ── 2D UI ──
         if (!invScreen.isOpen()) {
             hotbar.draw(player.inventory(), atlas);
-            healthbar.draw(player.health());
+            healthbar.draw(player.health(), player.gameMode());
         }
         invScreen.update(player.inventory(), items, player.camera().get().position);
         invScreen.draw(player.inventory(), atlas);
