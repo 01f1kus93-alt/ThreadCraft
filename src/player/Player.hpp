@@ -29,6 +29,11 @@ public:
     const Texture2D& skinTexture() const noexcept { return m_skinTex; }
     float swingAngle() const noexcept { return m_swingAngle; }
 
+    float health() const noexcept { return m_health; }
+    void  damage(float amount) noexcept;
+    void  heal(float amount) noexcept;
+    void  respawn() noexcept;
+
     void update(float dt, World& world, bool gameplayEnabled);
     bool handleInteraction(float dt, World& world, ParticleSystem& particles,
                            ItemEntityManager& items, bool gameplayEnabled);
@@ -57,6 +62,9 @@ private:
     float     m_swingAngle = 0.0f;
     float     m_swingProgress = 1.0f;
     float     m_swingCooldown = 0.0f;
+
+    float m_health = 20.0f;
+    float m_fallDistance = 0.0f;
 };
 
 } // namespace mc

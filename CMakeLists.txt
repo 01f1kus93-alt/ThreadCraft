@@ -75,6 +75,7 @@ set(SOURCES
     src/ui/HotbarRenderer.cpp
     src/ui/InventoryScreen.cpp
     src/ui/GamemodeMenu.cpp
+    src/ui/HealthBar.cpp
 
     src/core/ThreadPool.cpp
     src/core/TaskQueue.cpp
@@ -106,6 +107,7 @@ set(HEADERS
     src/ui/HotbarRenderer.hpp
     src/ui/InventoryScreen.hpp
     src/ui/GamemodeMenu.hpp
+    src/ui/HealthBar.hpp
 
     src/core/ThreadPool.hpp
     src/core/TaskQueue.hpp

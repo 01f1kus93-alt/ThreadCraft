@@ -11,6 +11,7 @@
 #include "ui/InventoryScreen.hpp"
 #include "ui/Inventory.hpp"
 #include "ui/GamemodeMenu.hpp"
+#include "ui/HealthBar.hpp"
 
 #include <raylib.h>
 #include <algorithm>
@@ -54,6 +55,9 @@ int main() {
 
     GamemodeMenu gamemodeMenu;
     gamemodeMenu.load();
+
+    HealthBar healthbar;
+    healthbar.load();
 
     Player player;
     player.load();
@@ -154,6 +158,7 @@ int main() {
         // ── 2D UI ──
         if (!invScreen.isOpen()) {
             hotbar.draw(player.inventory(), atlas);
+            healthbar.draw(player.health());
         }
         invScreen.update(player.inventory(), items, player.camera().get().position);
         invScreen.draw(player.inventory(), atlas);

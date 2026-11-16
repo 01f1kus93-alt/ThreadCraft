@@ -6,6 +6,7 @@
 #include <raylib.h>
 #include <raymath.h>
 #include <cmath>
+#include <algorithm>
 
 namespace mc {
 
@@ -44,6 +45,7 @@ void Player::update(float dt, World& world, bool gameplayEnabled) {
     if (m_gameMode == GameMode::Creative) {
         m_camera.update(dt);
         m_feetPos = Vector3Subtract(m_camera.get().position, Vector3{0.0f, m_eyeHeight, 0.0f});
+        m_fallDistance = 0.0f;
     } else {
         if (!m_physicsInit) {
             m_feetPos = Vector3Subtract(m_camera.get().position, Vector3{0.0f, m_eyeHeight, 0.0f});
@@ -52,6 +54,9 @@ void Player::update(float dt, World& world, bool gameplayEnabled) {
         m_camera.updateLookOnly(dt);
         applySurvivalPhysics(dt, world);
     }
+
+    // Death → respawn
+    if (m_health <= 0.0f) respawn();
 
     updateSwing(dt);
 }
@@ -95,10 +100,22 @@ void Player::applySurvivalPhysics(float dt, World& world) {
     m_feetPos.y += delta.y;
     if (collidesWithWorld(world)) {
         m_feetPos.y -= delta.y;
-        m_onGround = (delta.y < 0.0f);
+        const bool landed = (delta.y < 0.0f);
+        if (landed) {
+            // Fall damage: damage = fallDistance - 3.0 (only when > 3 blocks)
+            if (m_fallDistance > 3.0f) {
+                damage(m_fallDistance - 3.0f);
+            }
+            m_fallDistance = 0.0f;
+        }
+        m_onGround = landed;
         m_velocity.y = 0.0f;
     } else {
         m_onGround = false;
+        // Accumulate fall distance while airborne and moving downward
+        if (m_velocity.y < 0.0f) {
+            m_fallDistance += -m_velocity.y * dt;
+        }
     }
 
     m_feetPos.x += delta.x;
@@ -131,6 +148,23 @@ bool Player::collidesWithWorld(const World& world) const {
             for (int z = z0; z <= z1; ++z)
                 if (BlockRegistry::get(world.getBlock(x, y, z)).isSolid) return true;
     return false;
+}
+
+void Player::damage(float amount) noexcept {
+    m_health -= amount;
+    if (m_health < 0.0f) m_health = 0.0f;
+}
+
+void Player::heal(float amount) noexcept {
+    m_health = std::min(m_health + amount, 20.0f);
+}
+
+void Player::respawn() noexcept {
+    m_health = 20.0f;
+    m_feetPos.y = 100.0f;
+    m_velocity = {0.0f, 0.0f, 0.0f};
+    m_fallDistance = 0.0f;
+    m_camera.setPosition({ m_feetPos.x, m_feetPos.y + m_eyeHeight, m_feetPos.z });
 }
 
 void Player::updateSwing(float dt) {
