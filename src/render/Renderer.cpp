@@ -1,6 +1,7 @@
 #include "render/Renderer.hpp"
 #include <algorithm>
 #include <raymath.h>
+#include <rlgl.h>
 
 namespace mc {
 
@@ -51,20 +52,60 @@ void Renderer::beginFrame(const Camera3D& cam) {
     const Matrix matMVP  = MatrixMultiply(matView, matProj);
     if (m_mvpLoc != -1) SetShaderValueMatrix(m_shader, m_mvpLoc, matMVP);
     m_frustum.update(cam, aspect);
+    m_camPos = cam.position;
 
     m_frameTimes[m_frameIndex] = GetFrameTime();
     m_frameIndex = (m_frameIndex + 1) % GRAPH_SIZE;
 }
 
+bool Renderer::isChunkVisible(Vector3 boxMin, Vector3 boxMax) const {
+    const bool camInside =
+        m_camPos.x >= boxMin.x && m_camPos.x <= boxMax.x &&
+        m_camPos.y >= boxMin.y && m_camPos.y <= boxMax.y &&
+        m_camPos.z >= boxMin.z && m_camPos.z <= boxMax.z;
+    if (camInside) return true;
+
+    // Inflate the AABB slightly so chunks touching the frustum edges (or the
+    // camera sitting just outside) are not wrongly culled.
+    const Vector3 bmin = { boxMin.x - 1.5f, boxMin.y - 1.5f, boxMin.z - 1.5f };
+    const Vector3 bmax = { boxMax.x + 1.5f, boxMax.y + 1.5f, boxMax.z + 1.5f };
+    return m_frustum.isBoxVisible(bmin, bmax);
+}
+
 void Renderer::drawWorld(const World& world) const {
+    const bool debugFrustum = IsKeyDown(KEY_F9);
+
+    // Temporary frustum-culling debug overlay (F9): green = drawn, red = culled.
+    if (debugFrustum) {
+        rlDisableShader();  // default shader before immediate-mode wire cubes
+        for (const auto& [key, chunkPtr] : world.chunks()) {
+            const bool hasMesh =
+                (chunkPtr->hasOpaqueMesh && chunkPtr->opaqueMesh.vertexCount > 0) ||
+                (chunkPtr->hasTransparentMesh && chunkPtr->transparentMesh.vertexCount > 0);
+            if (!hasMesh) continue;
+            const Vector3 size = {
+                chunkPtr->boxMax.x - chunkPtr->boxMin.x,
+                chunkPtr->boxMax.y - chunkPtr->boxMin.y,
+                chunkPtr->boxMax.z - chunkPtr->boxMin.z
+            };
+            const Vector3 center = {
+                (chunkPtr->boxMin.x + chunkPtr->boxMax.x) * 0.5f,
+                (chunkPtr->boxMin.y + chunkPtr->boxMax.y) * 0.5f,
+                (chunkPtr->boxMin.z + chunkPtr->boxMax.z) * 0.5f
+            };
+            DrawCubeWires(center, size.x, size.y, size.z,
+                          isChunkVisible(chunkPtr->boxMin, chunkPtr->boxMax) ? GREEN : RED);
+        }
+    }
+
     for (const auto& [key, chunkPtr] : world.chunks()) {
         if (!chunkPtr->hasOpaqueMesh || chunkPtr->opaqueMesh.vertexCount == 0) continue;
-        if (!m_frustum.isBoxVisible(chunkPtr->boxMin, chunkPtr->boxMax)) continue;
+        if (!isChunkVisible(chunkPtr->boxMin, chunkPtr->boxMax)) continue;
         DrawMesh(chunkPtr->opaqueMesh, m_chunkMat, MatrixIdentity());
     }
     for (const auto& [key, chunkPtr] : world.chunks()) {
         if (!chunkPtr->hasTransparentMesh || chunkPtr->transparentMesh.vertexCount == 0) continue;
-        if (!m_frustum.isBoxVisible(chunkPtr->boxMin, chunkPtr->boxMax)) continue;
+        if (!isChunkVisible(chunkPtr->boxMin, chunkPtr->boxMax)) continue;
         DrawMesh(chunkPtr->transparentMesh, m_chunkMat, MatrixIdentity());
     }
 }

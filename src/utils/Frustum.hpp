@@ -27,6 +27,7 @@ struct Frustum {
 
     bool isBoxVisible(Vector3 min, Vector3 max) const {
         for (int i = 0; i < 6; i++) {
+            if (i == 4) continue;  // skip near plane: camera inside the AABB must stay visible
             Vector3 p = {
                 planes[i].x > 0 ? max.x : min.x,
                 planes[i].y > 0 ? max.y : min.y,

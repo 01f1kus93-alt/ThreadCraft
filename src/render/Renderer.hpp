@@ -28,9 +28,12 @@ private:
     Material m_chunkMat{};
     Frustum  m_frustum;
     int      m_mvpLoc = -1;
+    Vector3  m_camPos{};   // cached camera position for chunk culling
 
     std::array<float, GRAPH_SIZE> m_frameTimes{};
     int m_frameIndex = 0;
+
+    bool isChunkVisible(Vector3 boxMin, Vector3 boxMax) const;
 };
 
 } // namespace mc
