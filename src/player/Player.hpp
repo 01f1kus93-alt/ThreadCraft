@@ -24,7 +24,8 @@ public:
     const RaycastResult& lastHit() const noexcept { return m_lastHit; }
 
     GameMode gameMode() const noexcept { return m_gameMode; }
-    void setGameMode(GameMode m) noexcept { m_gameMode = m; m_velocity = {0.0f, 0.0f, 0.0f}; }
+    void setGameMode(GameMode m) noexcept;
+    bool isFlying() const noexcept { return m_flying; }
 
     const Texture2D& skinTexture() const noexcept { return m_skinTex; }
     float swingAngle() const noexcept { return m_swingAngle; }
@@ -39,9 +40,8 @@ public:
                            ItemEntityManager& items, bool gameplayEnabled);
 
 private:
-    void applySurvivalPhysics(float dt, World& world);
+    void applyPhysics(float dt, World& world);
     bool collidesWithWorld(const World& world) const;
-    void updateSwing(float dt);
 
     FlyCamera    m_camera;
     Inventory    m_inventory;
@@ -65,6 +65,11 @@ private:
 
     float m_health = 20.0f;
     float m_fallDistance = 0.0f;
+
+    // ── Flight / mode mechanics ──
+    bool  m_flying = false;
+    float m_spaceTapTimer = 0.0f;
+    static constexpr float DOUBLE_TAP_WINDOW = 0.3f;
 };
 
 } // namespace mc

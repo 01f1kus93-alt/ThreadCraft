@@ -33,40 +33,62 @@ bool Player::load() {
 
     return breakerOk;
 }
+void Player::setGameMode(GameMode m) noexcept {
+    m_gameMode = m;
+    m_velocity    = {0.0f, 0.0f, 0.0f};
+    m_fallDistance = 0.0f;
+    m_flying      = (m == GameMode::Spectator);
+}
 
 void Player::update(float dt, World& world, bool gameplayEnabled) {
     if (!gameplayEnabled) return;
 
+    // One-time feet position sync from camera
+    if (!m_physicsInit) {
+        m_feetPos = Vector3Subtract(m_camera.get().position, Vector3{0.0f, m_eyeHeight, 0.0f});
+        m_physicsInit = true;
+    }
+
+    // Hotbar selection
     for (int i = 0; i < Inventory::HOTBAR; ++i) {
         if (IsKeyPressed(KEY_ONE + i)) m_inventory.select(i);
     }
     m_inventory.scrollSelect((int)GetMouseWheelMove());
 
-    if (m_gameMode == GameMode::Creative) {
-        m_camera.update(dt);
-        m_feetPos = Vector3Subtract(m_camera.get().position, Vector3{0.0f, m_eyeHeight, 0.0f});
-        m_fallDistance = 0.0f;
-    } else {
-        if (!m_physicsInit) {
-            m_feetPos = Vector3Subtract(m_camera.get().position, Vector3{0.0f, m_eyeHeight, 0.0f});
-            m_physicsInit = true;
+    // Double-space flight toggle (works in all modes)
+    if (m_spaceTapTimer > 0.0f) m_spaceTapTimer -= dt;
+    if (IsKeyPressed(KEY_SPACE)) {
+        if (m_spaceTapTimer > 0.0f) {
+            m_flying = !m_flying;
+            m_spaceTapTimer = 0.0f;
+            if (m_flying) m_velocity.y = 0.0f;  // cancel fall
+        } else {
+            m_spaceTapTimer = DOUBLE_TAP_WINDOW;
         }
-        m_camera.updateLookOnly(dt);
-        applySurvivalPhysics(dt, world);
     }
+
+    // Look only (movement is handled by applyPhysics)
+    m_camera.updateLookOnly(dt);
+
+    // Unified physics for all modes
+    applyPhysics(dt, world);
 
     // Death → respawn
     if (m_health <= 0.0f) respawn();
-
-    updateSwing(dt);
 }
 
-void Player::applySurvivalPhysics(float dt, World& world) {
-    // Gravity (always applied; terminal velocity cap).
-    m_velocity.y -= 25.0f * dt;
-    if (m_velocity.y < -78.4f) m_velocity.y = -78.4f;
+void Player::applyPhysics(float dt, World& world) {
+    const bool spectator = (m_gameMode == GameMode::Spectator);
+    const bool flying    = m_flying;
+    const bool noclip    = spectator; // Spectator always ignores collisions
 
-    // Desired horizontal movement (camera yaw -> horizontal basis).
+    // Gravity (only when not flying).
+    if (!flying) {
+        m_velocity.y -= 25.0f * dt;
+        if (m_velocity.y < -78.4f) m_velocity.y = -78.4f;
+    }
+
+    // Horizontal wish (camera yaw → horizontal basis).
     const float yaw = m_camera.yaw();
     const Vector3 fwd   = { std::sin(yaw), 0.0f, -std::cos(yaw) };
     const Vector3 right = { std::cos(yaw), 0.0f,  std::sin(yaw) };
@@ -79,58 +101,75 @@ void Player::applySurvivalPhysics(float dt, World& world) {
 
     if (Vector3LengthSqr(wish) > 0.01f) {
         wish = Vector3Normalize(wish);
-        m_sprinting = IsKeyDown(KEY_LEFT_SHIFT);
-        const float speed = m_sprinting ? 5.6f : 4.3f;
+        const float speed = flying ? 15.0f : (m_sprinting ? 5.6f : 4.3f);
         m_velocity.x = wish.x * speed;
         m_velocity.z = wish.z * speed;
     } else {
-        m_velocity.x *= 0.8f;
-        m_velocity.z *= 0.8f;
+        m_velocity.x *= (flying ? 0.6f : 0.8f);
+        m_velocity.z *= (flying ? 0.6f : 0.8f);
     }
 
-    // Jump (only when grounded).
-    if (IsKeyPressed(KEY_SPACE) && m_onGround) {
-        m_velocity.y = 8.5f;
-        m_onGround = false;
+    // Vertical control
+    if (flying) {
+        float vy = 0.0f;
+        if (IsKeyDown(KEY_SPACE))      vy += 1.0f;
+        if (IsKeyDown(KEY_LEFT_SHIFT)) vy -= 1.0f;
+        m_velocity.y = vy * 15.0f;
+        m_sprinting = false;
+    } else {
+        m_sprinting = IsKeyDown(KEY_LEFT_SHIFT);
+        if (IsKeyPressed(KEY_SPACE) && m_onGround) {
+            m_velocity.y = 8.5f;
+            m_onGround = false;
+        }
     }
 
-    // Axis-separated movement with AABB collision (Minecraft-style).
+    // Movement (with or without collision)
     const Vector3 delta = Vector3Scale(m_velocity, dt);
 
-    m_feetPos.y += delta.y;
-    if (collidesWithWorld(world)) {
-        m_feetPos.y -= delta.y;
-        const bool landed = (delta.y < 0.0f);
-        if (landed) {
-            // Fall damage: damage = fallDistance - 3.0 (only when > 3 blocks)
-            if (m_fallDistance > 3.0f) {
-                damage(m_fallDistance - 3.0f);
-            }
-            m_fallDistance = 0.0f;
-        }
-        m_onGround = landed;
-        m_velocity.y = 0.0f;
-    } else {
+    if (noclip) {
+        m_feetPos = Vector3Add(m_feetPos, delta);
         m_onGround = false;
-        // Accumulate fall distance while airborne and moving downward
-        if (m_velocity.y < 0.0f) {
-            m_fallDistance += -m_velocity.y * dt;
+        m_fallDistance = 0.0f;
+    } else {
+        // Y-axis
+        m_feetPos.y += delta.y;
+        if (collidesWithWorld(world)) {
+            m_feetPos.y -= delta.y;
+            if (flying) {
+                // Do NOT zero velocity while flying (req #5)
+            } else {
+                const bool landed = (delta.y < 0.0f);
+                if (landed) {
+                    if (m_gameMode == GameMode::Survival && m_fallDistance > 3.0f)
+                        damage(m_fallDistance - 3.0f);
+                    m_fallDistance = 0.0f;
+                }
+                m_onGround = landed;
+                m_velocity.y = 0.0f;
+            }
+        } else {
+            m_onGround = false;
+            if (!flying && m_velocity.y < 0.0f)
+                m_fallDistance += -m_velocity.y * dt;
+        }
+
+        // X-axis
+        m_feetPos.x += delta.x;
+        if (collidesWithWorld(world)) {
+            m_feetPos.x -= delta.x;
+            m_velocity.x = 0.0f;
+        }
+
+        // Z-axis
+        m_feetPos.z += delta.z;
+        if (collidesWithWorld(world)) {
+            m_feetPos.z -= delta.z;
+            m_velocity.z = 0.0f;
         }
     }
 
-    m_feetPos.x += delta.x;
-    if (collidesWithWorld(world)) {
-        m_feetPos.x -= delta.x;
-        m_velocity.x = 0.0f;
-    }
-
-    m_feetPos.z += delta.z;
-    if (collidesWithWorld(world)) {
-        m_feetPos.z -= delta.z;
-        m_velocity.z = 0.0f;
-    }
-
-    // Sync the camera to the feet position (eye height).
+    // Sync camera to feet position
     m_camera.setPosition({ m_feetPos.x, m_feetPos.y + m_eyeHeight, m_feetPos.z });
 }
 
@@ -165,31 +204,6 @@ void Player::respawn() noexcept {
     m_velocity = {0.0f, 0.0f, 0.0f};
     m_fallDistance = 0.0f;
     m_camera.setPosition({ m_feetPos.x, m_feetPos.y + m_eyeHeight, m_feetPos.z });
-}
-
-void Player::updateSwing(float dt) {
-    if (m_swingCooldown > 0.0f) m_swingCooldown -= dt;
-
-    // Start a fresh swing when mining or placing (cooldown-limited).
-    const bool wantSwing =
-        m_breaker.isBreaking() ||
-        IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
-        IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
-    if (wantSwing && m_swingCooldown <= 0.0f) {
-        m_swingCooldown = 0.25f;
-        m_swingProgress = 0.0f;
-    }
-
-    // Half-sine swing: rises to PI/2 in ~0.13s, then eases back to rest.
-    constexpr float kPi     = 3.14159265f;
-    constexpr float kHalfPi = kPi * 0.5f;
-    if (m_swingProgress < 1.0f) {
-        m_swingProgress += dt / 0.25f;
-        if (m_swingProgress > 1.0f) m_swingProgress = 1.0f;
-        m_swingAngle = std::sin(m_swingProgress * kPi) * kHalfPi;
-    } else {
-        m_swingAngle = 0.0f;
-    }
 }
 
 bool Player::handleInteraction(float dt, World& world, ParticleSystem& particles,
