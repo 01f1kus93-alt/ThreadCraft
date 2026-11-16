@@ -46,4 +46,7 @@ inline constexpr int ATLAS_TILE_PAD  = 8;    // Texture-bleeding padding (px). P
                                               // tile boundaries, preventing edge-mirror artefacts up to
                                               // mip level 3 (2×2 px tile → 1 px pad → 0.5 px sub-texel).
 
+// ─────────────── Inventory ───────────────
+inline constexpr int STACK_MAX = 64;   // max items per stack
+
 } // namespace mc::config
