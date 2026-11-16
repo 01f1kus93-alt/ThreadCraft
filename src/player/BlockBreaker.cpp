@@ -31,10 +31,10 @@ namespace {
         rlTexCoord2f(1, 1); rlVertex3f(c.x - h, c.y + h, c.z + h);
         rlTexCoord2f(0, 1); rlVertex3f(c.x - h, c.y + h, c.z - h);
         // +Y (normal → +Y)
-        rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y + h, c.z - h);
+        rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y + h, c.z + h);
         rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y + h, c.z + h);
         rlTexCoord2f(1, 1); rlVertex3f(c.x + h, c.y + h, c.z - h);
-        rlTexCoord2f(0, 1); rlVertex3f(c.x - h, c.y + h, c.z + h);
+        rlTexCoord2f(0, 1); rlVertex3f(c.x - h, c.y + h, c.z - h);
         // -Y (normal → -Y)
         rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y - h, c.z - h);
         rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y - h, c.z - h);
