@@ -10,6 +10,7 @@
 #include "ui/HotbarRenderer.hpp"
 #include "ui/InventoryScreen.hpp"
 #include "ui/Inventory.hpp"
+#include "ui/GamemodeMenu.hpp"
 
 #include <raylib.h>
 #include <algorithm>
@@ -51,6 +52,9 @@ int main() {
     InventoryScreen invScreen;
     invScreen.load();
 
+    GamemodeMenu gamemodeMenu;
+    gamemodeMenu.load();
+
     Player player;
     player.load();
     player.inventory().add(BlockRegistry::STONE, 64);
@@ -67,7 +71,6 @@ int main() {
     player.camera().setLookAngles(0.0f, -0.5f);
 
     bool quitRequested = false;
-    float gamemodeToastTimer = 0.0f;
 
     while (!WindowShouldClose() && !quitRequested) {
         const float dt = std::min(GetFrameTime(), 0.05f);
@@ -88,7 +91,7 @@ int main() {
         }
 
         // ── Compute gameplay AFTER input (prevents camera spike on UI open) ──
-        const bool gameplay = !menu.isOpen() && !invScreen.isOpen();
+        const bool gameplay = !menu.isOpen() && !invScreen.isOpen() && !gamemodeMenu.isOpen();
 
         // ── Track focus transitions; skip one mouse frame on any open/close ──
         static bool prevGameplay = true;
@@ -101,19 +104,24 @@ int main() {
         world.update(player.camera().get().position);
         world.processUploads(atlas);
 
-        // ── Gamemode toggle (F3 + F4) ──
-        static bool f3Held = false, f4Held = false, comboDone = false;
-        if (IsKeyPressed(KEY_F3))  f3Held = true;
-        if (IsKeyReleased(KEY_F3)) f3Held = false;
-        if (IsKeyPressed(KEY_F4))  f4Held = true;
-        if (IsKeyReleased(KEY_F4)) f4Held = false;
-        if (f3Held && f4Held && !comboDone) {
-            comboDone = true;
-            player.setGameMode(player.gameMode() == GameMode::Creative
-                                   ? GameMode::Survival : GameMode::Creative);
-            gamemodeToastTimer = 2.0f;
+        // ── Gamemode menu (F3 + F4) ──
+        if (!gamemodeMenu.isOpen()) {
+            // Combo: press F3 while F4 held, or press F4 while F3 held.
+            if ((IsKeyPressed(KEY_F3) && IsKeyDown(KEY_F4)) ||
+                (IsKeyPressed(KEY_F4) && IsKeyDown(KEY_F3))) {
+                gamemodeMenu.open();
+                player.camera().skipNextMouseFrame();
+            }
+        } else {
+            if (IsKeyDown(KEY_F3)) gamemodeMenu.resetTimer();
+            if (IsKeyPressed(KEY_F4)) gamemodeMenu.cycle();
+            gamemodeMenu.update(dt);
         }
-        if (!f3Held || !f4Held) comboDone = false;
+        {
+            GameMode newGm;
+            if (gamemodeMenu.takeModeChange(newGm))
+                player.setGameMode(newGm);
+        }
 
         // ── Player ──
         player.update(dt, world, gameplay);
@@ -161,22 +169,14 @@ int main() {
             else if (action == MenuAction::Quit) quitRequested = true;
         }
 
+        // ── Gamemode switcher overlay (draws even when !gameplay) ──
+        gamemodeMenu.draw(atlas);
+
         if (gameplay) {
             renderer.drawCrosshair();
             renderer.drawDebugInfo(world, player.camera().get(),
                                    player.inventory().hotbar(player.inventory().selected()));
             renderer.drawFrameGraph();
-
-            if (gamemodeToastTimer > 0.0f) {
-                gamemodeToastTimer -= dt;
-                const char* msg = (player.gameMode() == GameMode::Creative)
-                    ? "Gamemode: Creative" : "Gamemode: Survival";
-                const int w = MeasureText(msg, 30);
-                DrawText(msg, (GetScreenWidth() - w) / 2, 80, 30, YELLOW);
-            }
-            const char* modeMsg = (player.gameMode() == GameMode::Creative)
-                ? "Mode: Creative" : "Mode: Survival";
-            DrawText(modeMsg, 10, GetScreenHeight() - 30, 20, YELLOW);
         }
 
         EndDrawing();
