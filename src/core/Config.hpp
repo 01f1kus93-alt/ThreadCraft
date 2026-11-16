@@ -49,4 +49,20 @@ inline constexpr int ATLAS_TILE_PAD  = 8;    // Texture-bleeding padding (px). P
 // ─────────────── Inventory ───────────────
 inline constexpr int STACK_MAX = 64;   // max items per stack
 
+// ─────────────── Block breaking ───────────────
+inline constexpr float BREAK_TIME_MULT = 1.5f;   // break time = hardness * BREAK_TIME_MULT (seconds)
+
+// ─────────────── Particles ───────────────
+inline constexpr float PARTICLE_GRAVITY = -18.0f;
+inline constexpr int   MAX_PARTICLES    = 2048;
+
+// ─────────────── Item entities ───────────────
+inline constexpr float ITEM_GRAVITY      = -20.0f;
+inline constexpr float ITEM_PICKUP_R     = 1.2f;
+inline constexpr float ITEM_PICKUP_DELAY = 0.35f;
+inline constexpr int   MAX_ITEM_ENTITIES = 256;
+
+// ─────────────── Hotbar ───────────────
+inline constexpr int HOTBAR_SLOTS = 9;
+
 } // namespace mc::config
