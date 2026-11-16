@@ -62,10 +62,23 @@ void Player::applyPhysics(float dt, World& world) {
     const bool flying    = m_flying;
     const bool noclip    = spectator; // Spectator always ignores collisions
 
-    // Gravity (only when not flying).
+    // ── Water check at feet position ──
+    const int feetX = (int)std::floor(m_feetPos.x);
+    const int feetY = (int)std::floor(m_feetPos.y);
+    const int feetZ = (int)std::floor(m_feetPos.z);
+    const bool inWater = !spectator && !flying &&
+        (world.getBlock(feetX, feetY, feetZ) == BlockRegistry::WATER);
+
+    // Gravity (only when not flying). Water reduces gravity significantly.
     if (!flying) {
-        m_velocity.y -= 25.0f * dt;
-        if (m_velocity.y < -78.4f) m_velocity.y = -78.4f;
+        if (inWater) {
+            m_velocity.y -= 5.0f * dt;
+            if (m_velocity.y < -3.0f) m_velocity.y = -3.0f;
+            m_fallDistance = 0.0f;   // no fall damage in water
+        } else {
+            m_velocity.y -= 25.0f * dt;
+            if (m_velocity.y < -78.4f) m_velocity.y = -78.4f;
+        }
     }
 
     // Horizontal wish (camera yaw → horizontal basis).
@@ -81,12 +94,15 @@ void Player::applyPhysics(float dt, World& world) {
 
     if (Vector3LengthSqr(wish) > 0.01f) {
         wish = Vector3Normalize(wish);
-        const float speed = flying ? 15.0f : (m_sprinting ? 5.6f : 4.3f);
+        const float speed = flying ? 15.0f
+                           : inWater ? 2.5f
+                           : (m_sprinting ? 5.6f : 4.3f);
         m_velocity.x = wish.x * speed;
         m_velocity.z = wish.z * speed;
     } else {
-        m_velocity.x *= (flying ? 0.6f : 0.8f);
-        m_velocity.z *= (flying ? 0.6f : 0.8f);
+        const float drag = flying ? 0.6f : (inWater ? 0.85f : 0.8f);
+        m_velocity.x *= drag;
+        m_velocity.z *= drag;
     }
 
     // Vertical control
@@ -96,6 +112,11 @@ void Player::applyPhysics(float dt, World& world) {
         if (IsKeyDown(KEY_LEFT_SHIFT)) vy -= 1.0f;
         m_velocity.y = vy * 15.0f;
         m_sprinting = false;
+    } else if (inWater) {
+        m_sprinting = false;
+        if (IsKeyDown(KEY_SPACE)) {
+            m_velocity.y = 3.0f;     // swim upward
+        }
     } else {
         m_sprinting = IsKeyDown(KEY_LEFT_SHIFT);
         if (IsKeyPressed(KEY_SPACE) && m_onGround) {
