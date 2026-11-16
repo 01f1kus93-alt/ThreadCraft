@@ -27,8 +27,8 @@ public:
     void setGameMode(GameMode m) noexcept { m_gameMode = m; m_velocity = {0.0f, 0.0f, 0.0f}; }
 
     void update(float dt, World& world, bool gameplayEnabled);
-    void handleInteraction(float dt, World& world, ParticleSystem& particles,
-                           ItemEntityManager& items);
+    bool handleInteraction(float dt, World& world, ParticleSystem& particles,
+                           ItemEntityManager& items, bool gameplayEnabled);
 
 private:
     void applySurvivalPhysics(float dt, World& world);

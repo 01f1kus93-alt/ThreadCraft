@@ -67,6 +67,7 @@ int main() {
     player.camera().setLookAngles(0.0f, -0.5f);
 
     bool quitRequested = false;
+    float gamemodeToastTimer = 0.0f;
 
     while (!WindowShouldClose() && !quitRequested) {
         const float dt = std::min(GetFrameTime(), 0.05f);
@@ -91,11 +92,23 @@ int main() {
         world.update(player.camera().get().position);
         world.processUploads(atlas);
 
+        // ── Gamemode toggle (F3 + F4) ──
+        static bool f3Held = false, f4Held = false, comboDone = false;
+        if (IsKeyPressed(KEY_F3))  f3Held = true;
+        if (IsKeyReleased(KEY_F3)) f3Held = false;
+        if (IsKeyPressed(KEY_F4))  f4Held = true;
+        if (IsKeyReleased(KEY_F4)) f4Held = false;
+        if (f3Held && f4Held && !comboDone) {
+            comboDone = true;
+            player.setGameMode(player.gameMode() == GameMode::Creative
+                                   ? GameMode::Survival : GameMode::Creative);
+            gamemodeToastTimer = 2.0f;
+        }
+        if (!f3Held || !f4Held) comboDone = false;
+
         // ── Player ──
         player.update(dt, world, gameplay);
-        if (gameplay) {
-            player.handleInteraction(dt, world, particles, items);
-        }
+        player.handleInteraction(dt, world, particles, items, gameplay);
 
         // ── Simulation ──
         items.update(dt, player.camera().get().position, world, player.inventory());
@@ -139,6 +152,17 @@ int main() {
             renderer.drawDebugInfo(world, player.camera().get(),
                                    player.inventory().hotbar(player.inventory().selected()));
             renderer.drawFrameGraph();
+
+            if (gamemodeToastTimer > 0.0f) {
+                gamemodeToastTimer -= dt;
+                const char* msg = (player.gameMode() == GameMode::Creative)
+                    ? "Gamemode: Creative" : "Gamemode: Survival";
+                const int w = MeasureText(msg, 30);
+                DrawText(msg, (GetScreenWidth() - w) / 2, 80, 30, YELLOW);
+            }
+            const char* modeMsg = (player.gameMode() == GameMode::Creative)
+                ? "Mode: Creative" : "Mode: Survival";
+            DrawText(modeMsg, 10, GetScreenHeight() - 30, 20, YELLOW);
         }
 
         EndDrawing();

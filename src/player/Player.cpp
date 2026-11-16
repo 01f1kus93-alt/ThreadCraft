@@ -111,8 +111,8 @@ bool Player::collidesWithWorld(const World& world) const {
     return false;
 }
 
-void Player::handleInteraction(float dt, World& world, ParticleSystem& particles,
-                               ItemEntityManager& items) {
+bool Player::handleInteraction(float dt, World& world, ParticleSystem& particles,
+                               ItemEntityManager& items, bool gameplayEnabled) {
     // Crosshair ray, computed once per frame.
     const int cx = GetScreenWidth() / 2;
     const int cy = GetScreenHeight() / 2;
@@ -121,18 +121,36 @@ void Player::handleInteraction(float dt, World& world, ParticleSystem& particles
 
     const RaycastResult& hit = m_lastHit;
 
-    // LMB: hold to break (progress-based).
-    const bool lmb = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
-    const bool broke = m_breaker.update(dt, lmb, hit, world, particles);
-    if (broke) {
-        const BlockID brokenId = world.getBlock(hit.wx, hit.wy, hit.wz);
-        const Vector3 center = { hit.wx + 0.5f, hit.wy + 0.5f, hit.wz + 0.5f };
-        world.setBlock(hit.wx, hit.wy, hit.wz, BLOCK_AIR);
-        particles.spawnBlockBreak(center, brokenId);
-        items.spawn(center, brokenId, 1);
+    if (!gameplayEnabled) {
+        m_breaker.reset();
+        return false;
     }
 
-    // RMB: place the selected block (press only).
+    const bool creative = (m_gameMode == GameMode::Creative);
+    bool broke = false;
+
+    // LMB: break. Creative = instant (no drop); Survival = hold-to-break + drop.
+    if (creative) {
+        m_breaker.reset();
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hit.hit) {
+            const BlockID id = world.getBlock(hit.wx, hit.wy, hit.wz);
+            if (id != BLOCK_AIR && BlockRegistry::get(id).hardness >= 0.0f) {
+                world.setBlock(hit.wx, hit.wy, hit.wz, BLOCK_AIR);
+                particles.spawnBlockBreak({ hit.wx + 0.5f, hit.wy + 0.5f, hit.wz + 0.5f }, id);
+            }
+        }
+    } else {
+        broke = m_breaker.update(dt, IsMouseButtonDown(MOUSE_BUTTON_LEFT), hit, world, particles);
+        if (broke) {
+            const BlockID brokenId = world.getBlock(hit.wx, hit.wy, hit.wz);
+            const Vector3 center = { hit.wx + 0.5f, hit.wy + 0.5f, hit.wz + 0.5f };
+            world.setBlock(hit.wx, hit.wy, hit.wz, BLOCK_AIR);
+            particles.spawnBlockBreak(center, brokenId);
+            items.spawn(center, brokenId, 1);
+        }
+    }
+
+    // RMB: place the selected block (press only). Creative doesn't consume the stack.
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && hit.hit) {
         const ItemStack sel = m_inventory.hotbar(m_inventory.selected());
         if (!sel.isEmpty()) {
@@ -143,8 +161,10 @@ void Player::handleInteraction(float dt, World& world, ParticleSystem& particles
             const bool replaceable = (target == BLOCK_AIR) || !BlockRegistry::get(target).isSolid;
             if (replaceable) {
                 world.setBlock(px, py, pz, sel.id);
-                ItemStack& s = m_inventory.hotbar(m_inventory.selected());
-                if (--s.count == 0) s.clear();
+                if (!creative) {
+                    ItemStack& s = m_inventory.hotbar(m_inventory.selected());
+                    if (--s.count == 0) s.clear();
+                }
             }
         }
     }
@@ -157,6 +177,8 @@ void Player::handleInteraction(float dt, World& world, ParticleSystem& particles
                 ItemStack{ id, (uint8_t)config::STACK_MAX };
         }
     }
+
+    return broke;
 }
 
 } // namespace mc
