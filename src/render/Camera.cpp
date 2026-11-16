@@ -1,6 +1,7 @@
 #include "render/Camera.hpp"
 #include <raymath.h>
 #include <cmath>
+#include <cstdlib>
 
 namespace mc {
 
@@ -25,8 +26,33 @@ Vector3 FlyCamera::forward() const noexcept {
     };
 }
 
+void FlyCamera::shake(float intensity, float duration) noexcept {
+    m_shakeIntensity = intensity;
+    m_shakeDuration  = (duration > 0.0f) ? duration : 0.0f;
+    m_shakeTimer     = m_shakeDuration;
+}
+
+void FlyCamera::updateShake(float dt) noexcept {
+    if (m_shakeTimer > 0.0f) {
+        m_shakeTimer -= dt;
+        if (m_shakeTimer < 0.0f) m_shakeTimer = 0.0f;
+
+        // Плавное затухание: чем ближе таймер к 0, тем слабее тряска.
+        const float fade = (m_shakeDuration > 0.0f) ? (m_shakeTimer / m_shakeDuration) : 0.0f;
+        const float amp  = m_shakeIntensity * fade;
+
+        m_shakeOffset = {
+            (float)(rand() % 100 - 50) * 0.001f * amp,
+            (float)(rand() % 100 - 50) * 0.001f * amp,
+            (float)(rand() % 100 - 50) * 0.001f * amp,
+        };
+    } else {
+        m_shakeOffset = { 0.0f, 0.0f, 0.0f };
+    }
+}
+
 void FlyCamera::updateLookOnly(float dt) {
-    (void)dt;  // look is driven by GetMouseDelta, not by dt
+    updateShake(dt);
 
     const Vector2 delta = GetMouseDelta();
     if (m_skipMouseFrame) {
@@ -40,7 +66,7 @@ void FlyCamera::updateLookOnly(float dt) {
     if (m_pitch >  MAX_PITCH) m_pitch =  MAX_PITCH;
     if (m_pitch < -MAX_PITCH) m_pitch = -MAX_PITCH;
 
-    m_cam.target = Vector3Add(m_cam.position, forward());
+    m_cam.target = Vector3Add(Vector3Add(m_cam.position, forward()), m_shakeOffset);
 }
 
 void FlyCamera::update(float dt) {
@@ -64,13 +90,13 @@ void FlyCamera::update(float dt) {
         float speed = moveSpeed;
         if (IsKeyDown(KEY_LEFT_CONTROL)) speed *= 4.0f;
         m_cam.position = Vector3Add(m_cam.position, Vector3Scale(move, speed * dt));
-        m_cam.target = Vector3Add(m_cam.position, fwd);
+        m_cam.target = Vector3Add(Vector3Add(m_cam.position, fwd), m_shakeOffset);
     }
 }
 
 void FlyCamera::setPosition(Vector3 p) noexcept {
     m_cam.position = p;
-    m_cam.target = Vector3Add(m_cam.position, forward());
+    m_cam.target = Vector3Add(Vector3Add(m_cam.position, forward()), m_shakeOffset);
 }
 
 void FlyCamera::setLookAngles(float yaw, float pitch) {
@@ -79,7 +105,7 @@ void FlyCamera::setLookAngles(float yaw, float pitch) {
     constexpr float MAX_PITCH = 1.553343f;
     if (m_pitch >  MAX_PITCH) m_pitch =  MAX_PITCH;
     if (m_pitch < -MAX_PITCH) m_pitch = -MAX_PITCH;
-    m_cam.target = Vector3Add(m_cam.position, forward());
+    m_cam.target = Vector3Add(Vector3Add(m_cam.position, forward()), m_shakeOffset);
 }
 
 } // namespace mc

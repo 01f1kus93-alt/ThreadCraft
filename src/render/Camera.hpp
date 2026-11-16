@@ -14,6 +14,10 @@ public:
     void setLookAngles(float yaw, float pitch);
     void setPosition(Vector3 p) noexcept;
 
+    /// Start a screen shake: intensity scales the random offset magnitude,
+    /// duration is how long the shake decays over (seconds).
+    void shake(float intensity, float duration) noexcept;
+
     /// Skip applying GetMouseDelta on the next updateLookOnly call.
     /// Used after EnableCursor/DisableCursor transitions to avoid camera jumps.
     void skipNextMouseFrame() noexcept { m_skipMouseFrame = true; }
@@ -30,11 +34,17 @@ public:
 
 private:
     Vector3 forward() const noexcept;
+    void    updateShake(float dt) noexcept;
 
     Camera3D m_cam{};
     float m_yaw   = 0.0f;
     float m_pitch = 0.0f;
     bool  m_skipMouseFrame = false;
+
+    float   m_shakeTimer     = 0.0f;
+    float   m_shakeIntensity = 0.0f;
+    float   m_shakeDuration  = 1.0f;  // для плавного затухания
+    Vector3 m_shakeOffset{};          // текущее случайное смещение взгляда
 };
 
 } // namespace mc

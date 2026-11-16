@@ -191,6 +191,7 @@ bool Player::collidesWithWorld(const World& world) const {
 }
 
 void Player::damage(float amount) noexcept {
+    if (amount > 0.0f) m_camera.shake(1.0f, 0.3f);
     m_health -= amount;
     if (m_health < 0.0f) m_health = 0.0f;
 }
