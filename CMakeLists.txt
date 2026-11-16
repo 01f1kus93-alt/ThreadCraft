@@ -91,6 +91,7 @@ set(SOURCES
     src/render/Camera.cpp
 
     src/player/Player.cpp
+    src/player/BlockBreaker.cpp
 )
 
 set(HEADERS
@@ -120,6 +121,7 @@ set(HEADERS
     src/render/Camera.hpp
 
     src/player/Player.hpp
+    src/player/BlockBreaker.hpp
 
     src/utils/Log.hpp
     src/utils/Math.hpp
