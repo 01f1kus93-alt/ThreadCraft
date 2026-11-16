@@ -195,7 +195,7 @@ void Renderer::drawPlayerArm(const Texture2D& tex, float swingAngle) const {
 
     if (tex.id != 0) {
         // Back face of the right arm (Steve 64x64 skin: 4x12 px).
-        const Rectangle src = { 52.0f, 20.0f, 4.0f, 12.0f };
+        const Rectangle src = { 52.0f, 32.0f, 4.0f, -12.0f };
         DrawTexturePro(tex, src, dst, { 0.0f, 0.0f }, -15.0f, WHITE);
     } else {
         DrawRectanglePro(dst, { 0.0f, 0.0f }, -15.0f, Color{ 190, 150, 120, 255 });
