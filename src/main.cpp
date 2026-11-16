@@ -154,6 +154,10 @@ int main() {
             if (menu.takeRenderDistanceChange(rd)) {
                 world.setRenderDistance(rd);
             }
+            float fov = 75.0f;
+            if (menu.takeFovChange(fov)) {
+                player.camera().get().fovy = fov;
+            }
             if (action == MenuAction::Resume) menu.close();
             else if (action == MenuAction::Quit) quitRequested = true;
         }

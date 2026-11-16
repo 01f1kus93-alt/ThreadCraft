@@ -101,11 +101,13 @@ void drawProceduralButton(const char* label, bool active,
 }
 
 // ─── Slider ─────────────────────────────────────────────────────────────
-constexpr int SLIDER_W  = 200;
-constexpr int SLIDER_H  = 20;
-constexpr int HANDLE_W  = 8;
-constexpr int RD_MIN    = config::RENDER_DISTANCE_MIN;
-constexpr int RD_MAX    = config::RENDER_DISTANCE_MAX;
+constexpr int SLIDER_W    = 200;
+constexpr int SLIDER_H    = 20;
+constexpr int HANDLE_W    = 8;
+constexpr int RD_MIN      = config::RENDER_DISTANCE_MIN;
+constexpr int RD_MAX      = config::RENDER_DISTANCE_MAX;
+constexpr int FOV_MIN     = 30;
+constexpr int FOV_MAX     = 110;
 
 // w — ширина в ЭКРАННЫХ пикселях
 void drawSliderTextured(const Texture2D& tex, const McFont& font,
@@ -161,6 +163,13 @@ int sliderValueFromMouse(int mx, int sliderX, int sliderW, int handleW) {
     return std::clamp(RD_MIN + (int)(t * (RD_MAX - RD_MIN) + 0.5f), RD_MIN, RD_MAX);
 }
 
+float fovValueFromMouse(int mx, int sliderX, int sliderW, int handleW) {
+    float t = (float)(mx - sliderX - handleW / 2) / (float)(sliderW - handleW);
+    t = std::clamp(t, 0.0f, 1.0f);
+    return std::clamp((float)FOV_MIN + t * (float)(FOV_MAX - FOV_MIN),
+                      (float)FOV_MIN, (float)FOV_MAX);
+}
+
 } // anonymous namespace
 
 // ─── PauseMenu ───────────────────────────────────────────────────────────
@@ -194,6 +203,7 @@ void PauseMenu::unload() {
     m_skipMouse = false;
     m_screen = Screen::Pause;
     m_draggingSlider = false;
+    m_draggingFovSlider = false;
 }
 
 bool PauseMenu::isOpen() const { return m_open; }
@@ -204,6 +214,7 @@ void PauseMenu::close() {
     m_open = false;
     m_screen = Screen::Pause;
     m_draggingSlider = false;
+    m_draggingFovSlider = false;
     DisableCursor();
     m_skipMouse = true;
 }
@@ -231,6 +242,13 @@ void PauseMenu::handleEscape() {
                 m_hasRenderDistanceChange = true;
             }
         }
+        if (m_draggingFovSlider) {
+            m_draggingFovSlider = false;
+            if (m_fov != m_dragStartFov) {
+                m_pendingFov = m_fov;
+                m_hasFovChange = true;
+            }
+        }
         m_screen = Screen::Options;
         break;
     }
@@ -248,6 +266,20 @@ void PauseMenu::setRenderDistance(int v) {
     m_renderDistance = v;
     m_hasRenderDistanceChange = false;
     m_pendingRenderDistance = 0;
+}
+
+bool PauseMenu::takeFovChange(float& outFov) {
+    if (!m_hasFovChange) return false;
+    outFov = m_pendingFov;
+    m_hasFovChange = false;
+    return true;
+}
+
+void PauseMenu::setFov(float v) {
+    v = std::clamp(v, (float)FOV_MIN, (float)FOV_MAX);
+    m_fov = v;
+    m_hasFovChange = false;
+    m_pendingFov = 0.0f;
 }
 
 MenuAction PauseMenu::update() {
@@ -284,30 +316,70 @@ MenuAction PauseMenu::update() {
 
     // ─── Options screen ───────────────────────────────────────────────
     if (m_screen == Screen::Options) {
-        if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            return MenuAction::None;
-
         const int cx = sw / 2;
-
-        // Done
-        {
-            const int doneX = (sw - 200 * s) / 2;
-            const int doneY = 212 * s;
-            if (mx >= doneX && mx < doneX + 200 * s &&
-                my >= doneY && my < doneY + BTN_H * s) {
-                m_screen = Screen::Pause;
-                return MenuAction::None;
-            }
-        }
-
-        // Единственная активная кнопка сетки: "Graphics Settings" (ряд 1, левая колонка)
         const int colL = cx - 155 * s;
         const int btnW = 150 * s;
-        const int gy   = 114 * s;
-        if (mx >= colL && mx < colL + btnW &&
-            my >= gy   && my < gy + BTN_H * s) {
-            m_screen = Screen::Graphics;
-            return MenuAction::None;
+        const int topRowY = 66 * s;
+        const int handleW = HANDLE_W * s;
+
+        // ── FOV slider drag/release ──
+        if (m_draggingFovSlider) {
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                m_fov = fovValueFromMouse(mx, colL, btnW, handleW);
+            }
+            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+                m_draggingFovSlider = false;
+                if (std::abs(m_fov - m_dragStartFov) > 0.1f) {
+                    m_pendingFov = m_fov;
+                    m_hasFovChange = true;
+                }
+            }
+            // Don't return; still allow pressing Done while dragging
+        }
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            // FOV слайдер (левая колонка, первый ряд)
+            if (mx >= colL && mx < colL + btnW &&
+                my >= topRowY && my < topRowY + BTN_H * s) {
+                m_draggingFovSlider = true;
+                m_dragStartFov = m_fov;
+                m_fov = fovValueFromMouse(mx, colL, btnW, handleW);
+                return MenuAction::None;
+            }
+
+            // Done
+            {
+                const int doneX = (sw - 200 * s) / 2;
+                const int doneY = 212 * s;
+                if (mx >= doneX && mx < doneX + 200 * s &&
+                    my >= doneY && my < doneY + BTN_H * s) {
+                    // Commit FOV on Done if dragging ended
+                    if (m_draggingFovSlider) {
+                        m_draggingFovSlider = false;
+                        if (std::abs(m_fov - m_dragStartFov) > 0.1f) {
+                            m_pendingFov = m_fov;
+                            m_hasFovChange = true;
+                        }
+                    }
+                    m_screen = Screen::Pause;
+                    return MenuAction::None;
+                }
+            }
+
+            // "Graphics Settings" кнопка (ряд 1, левая колонка)
+            const int gy = 114 * s;
+            if (mx >= colL && mx < colL + btnW &&
+                my >= gy   && my < gy + BTN_H * s) {
+                if (m_draggingFovSlider) {
+                    m_draggingFovSlider = false;
+                    if (std::abs(m_fov - m_dragStartFov) > 0.1f) {
+                        m_pendingFov = m_fov;
+                        m_hasFovChange = true;
+                    }
+                }
+                m_screen = Screen::Graphics;
+                return MenuAction::None;
+            }
         }
         return MenuAction::None;
     }
@@ -426,21 +498,29 @@ void PauseMenu::drawOptionsScreen(int s, int cx, int mx, int my) const {
         DrawText(title, (2 * cx - tw) / 2, TITLE_Y * s, fontSize, WHITE);
     }
 
-    // ─── FOV (неактивный слайдер) + Online (неактивная кнопка) ───
+    // ─── FOV (активный слайдер) + Online (неактивная кнопка) ───
     const int topRowY = 66 * s;
     const int colL = cx - 155 * s;
     const int colR = cx + 5 * s;
     const int btnW = 150 * s;
-    const float fovT = 0.5f;
+    const float fovT = (m_fov - (float)FOV_MIN) / (float)(FOV_MAX - FOV_MIN);
+    const int handleW = HANDLE_W * s;
+    const int handleX = colL + (int)(fovT * (float)(btnW - handleW));
+    const bool handleHover = m_draggingFovSlider ||
+                             (mx >= handleX && mx < handleX + handleW &&
+                              my >= topRowY && my < topRowY + BTN_H * s);
+
+    char fovLabel[64];
+    snprintf(fovLabel, sizeof(fovLabel), "FOV: %.0f", m_fov);
 
     if (m_loaded) {
-        drawSliderTextured(m_widgetsTex, m_font, "FOV: Normal",
-                           colL, topRowY, btnW, fovT, false, false, s);
+        drawSliderTextured(m_widgetsTex, m_font, fovLabel,
+                           colL, topRowY, btnW, fovT, true, handleHover, s);
         drawTexturedButton(m_widgetsTex, m_font, "Online", false,
                            colR, topRowY, btnW, BTN_H * s, false, s);
     } else {
-        drawSliderProcedural("FOV: Normal",
-                             colL, topRowY, btnW, fovT, false, false, s);
+        drawSliderProcedural(fovLabel,
+                             colL, topRowY, btnW, fovT, true, handleHover, s);
         drawProceduralButton("Online", false,
                              colR, topRowY, btnW, BTN_H * s, false, s);
     }

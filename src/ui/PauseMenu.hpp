@@ -23,6 +23,8 @@ public:
     bool consumeMouseSkip();                     // true один раз после close()
     bool takeRenderDistanceChange(int& outValue); // true один раз после отпускания слайдера
     void setRenderDistance(int v);                // инициализация значения слайдера
+    bool takeFovChange(float& outFov);            // true один раз после отпускания слайдера FOV
+    void setFov(float v);                         // инициализация значения слайдера FOV
 
 private:
     void drawPauseScreen(int s, int sw, int sh, int mx, int my) const;
@@ -43,6 +45,13 @@ private:
     int   m_dragStartValue = 0;
     bool  m_hasRenderDistanceChange = false;
     int   m_pendingRenderDistance = 0;
+
+    // Слайдер FOV
+    float m_fov                 = 75.0f;
+    bool  m_draggingFovSlider   = false;
+    float m_dragStartFov        = 75.0f;
+    bool  m_hasFovChange        = false;
+    float m_pendingFov          = 75.0f;
 };
 
 } // namespace mc
