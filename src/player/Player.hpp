@@ -20,6 +20,7 @@ public:
     const Inventory& inventory() const noexcept { return m_inventory; }
     BlockBreaker&    breaker()   noexcept { return m_breaker; }
     const BlockBreaker& breaker() const noexcept { return m_breaker; }
+    const Vector3&   feetPos()  const noexcept { return m_feetPos; }
 
     const RaycastResult& lastHit() const noexcept { return m_lastHit; }
 

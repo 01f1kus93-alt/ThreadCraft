@@ -58,7 +58,7 @@ inline constexpr int   MAX_PARTICLES    = 2048;
 
 // ─────────────── Item entities ───────────────
 inline constexpr float ITEM_GRAVITY      = -20.0f;
-inline constexpr float ITEM_PICKUP_R     = 1.2f;
+inline constexpr float ITEM_PICKUP_R     = 1.5f;
 inline constexpr float ITEM_PICKUP_DELAY = 0.35f;
 inline constexpr int   MAX_ITEM_ENTITIES = 256;
 

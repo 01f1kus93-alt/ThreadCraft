@@ -121,7 +121,7 @@ int main() {
         player.handleInteraction(dt, world, particles, items, gameplay);
 
         // ── Simulation ──
-        items.update(dt, player.camera().get().position, world, player.inventory());
+        items.update(dt, player.feetPos(), world, player.inventory());
         particles.update(dt);
 
         // ── 3D ──
