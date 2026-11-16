@@ -83,6 +83,7 @@ set(SOURCES
     src/world/World.cpp
     src/world/WorldGenerator.cpp
     src/world/ParticleSystem.cpp
+    src/world/ItemEntityManager.cpp
 
     src/meshing/GreedyMeshBuilder.cpp
 
@@ -113,6 +114,7 @@ set(HEADERS
     src/world/World.hpp
     src/world/WorldGenerator.hpp
     src/world/ParticleSystem.hpp
+    src/world/ItemEntityManager.hpp
 
     src/meshing/GreedyMeshBuilder.hpp
 
