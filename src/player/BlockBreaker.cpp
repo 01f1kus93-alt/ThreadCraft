@@ -138,12 +138,14 @@ void BlockBreaker::drawCrack() const {
     const Vector3 center = { m_tx + 0.5f, m_ty + 0.5f, m_tz + 0.5f };
 
     rlDisableDepthMask();
+    rlDisableBackfaceCulling();  // crack overlay must be visible from all 6 sides
     if (m_crackLoaded) {
         const int stage = std::clamp(m_stage, 0, 9);
         drawCrackCube(m_crackTex[stage], center, 1.002f);
     } else {
         DrawCube(center, 1.002f, 1.002f, 1.002f, Color{ 0, 0, 0, (uint8_t)(m_stage * 22) });
     }
+    rlEnableBackfaceCulling();
     rlEnableDepthMask();
 }
 
