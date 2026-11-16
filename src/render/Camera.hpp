@@ -14,6 +14,10 @@ public:
     void setLookAngles(float yaw, float pitch);
     void setPosition(Vector3 p) noexcept;
 
+    /// Skip applying GetMouseDelta on the next updateLookOnly call.
+    /// Used after EnableCursor/DisableCursor transitions to avoid camera jumps.
+    void skipNextMouseFrame() noexcept { m_skipMouseFrame = true; }
+
     float yaw()   const noexcept { return m_yaw; }
     float pitch() const noexcept { return m_pitch; }
 
@@ -30,6 +34,7 @@ private:
     Camera3D m_cam{};
     float m_yaw   = 0.0f;
     float m_pitch = 0.0f;
+    bool  m_skipMouseFrame = false;
 };
 
 } // namespace mc

@@ -71,7 +71,6 @@ int main() {
 
     while (!WindowShouldClose() && !quitRequested) {
         const float dt = std::min(GetFrameTime(), 0.05f);
-        const bool gameplay = !menu.isOpen() && !invScreen.isOpen();
 
         // ── Input ──
         if (IsKeyPressed(KEY_ESCAPE)) {
@@ -86,6 +85,16 @@ int main() {
         const bool invSkip  = invScreen.consumeMouseSkip();
         if (menuSkip || invSkip) {
             (void)GetMouseDelta();
+        }
+
+        // ── Compute gameplay AFTER input (prevents camera spike on UI open) ──
+        const bool gameplay = !menu.isOpen() && !invScreen.isOpen();
+
+        // ── Track focus transitions; skip one mouse frame on any open/close ──
+        static bool prevGameplay = true;
+        if (gameplay != prevGameplay) {
+            player.camera().skipNextMouseFrame();
+            prevGameplay = gameplay;
         }
 
         // ── World ──

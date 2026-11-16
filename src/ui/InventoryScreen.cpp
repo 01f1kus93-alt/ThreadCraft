@@ -102,6 +102,7 @@ void InventoryScreen::unload() {
 void InventoryScreen::open() {
     m_open = true;
     EnableCursor();
+    (void)GetMouseDelta();
 }
 
 void InventoryScreen::close(Inventory& inv) {

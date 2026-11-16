@@ -198,7 +198,7 @@ void PauseMenu::unload() {
 
 bool PauseMenu::isOpen() const { return m_open; }
 
-void PauseMenu::open() { m_open = true; EnableCursor(); }
+void PauseMenu::open() { m_open = true; EnableCursor(); (void)GetMouseDelta(); }
 
 void PauseMenu::close() {
     m_open = false;

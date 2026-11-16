@@ -29,8 +29,12 @@ void FlyCamera::updateLookOnly(float dt) {
     (void)dt;  // look is driven by GetMouseDelta, not by dt
 
     const Vector2 delta = GetMouseDelta();
-    m_yaw   += delta.x * mouseSensitivity;
-    m_pitch -= delta.y * mouseSensitivity;
+    if (m_skipMouseFrame) {
+        m_skipMouseFrame = false;
+    } else {
+        m_yaw   += delta.x * mouseSensitivity;
+        m_pitch -= delta.y * mouseSensitivity;
+    }
 
     constexpr float MAX_PITCH = 1.553343f; // ~89°
     if (m_pitch >  MAX_PITCH) m_pitch =  MAX_PITCH;
