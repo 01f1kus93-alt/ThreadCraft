@@ -140,8 +140,12 @@ void BlockBreaker::drawCrack() const {
     rlDisableDepthMask();
     rlDisableBackfaceCulling();  // crack overlay must be visible from all 6 sides
     if (m_crackLoaded) {
+        // Multiplied blend: white transparent bg -> no change,
+        // dark crack pixels naturally darken the block (vanilla MC).
+        rlSetBlendMode(RL_BLEND_MULTIPLIED);
         const int stage = std::clamp(m_stage, 0, 9);
         drawCrackCube(m_crackTex[stage], center, 1.004f);
+        rlSetBlendMode(RL_BLEND_ALPHA);
     } else {
         DrawCube(center, 1.004f, 1.004f, 1.004f, Color{ 0, 0, 0, (uint8_t)(m_stage * 22) });
     }
