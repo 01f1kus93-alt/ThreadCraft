@@ -21,7 +21,7 @@ struct BlockCoord {
 };
 
 // ─────────────── Режим игры ───────────────
-enum class GameMode : uint8_t { Survival, Creative };
+enum class GameMode : uint8_t { Survival, Creative, Spectator, Adventure };
 
 // ─────────────── Грани блока ───────────────
 enum class Face : uint8_t {

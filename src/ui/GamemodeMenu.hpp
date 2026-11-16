@@ -6,40 +6,42 @@ namespace mc {
 
 class TextureAtlas;
 
-// F3+F4 gamemode switcher (like vanilla MC).
-// Shows 4 slots: Grass (Survival), Sword (Adventure inactive),
-// Stone block (Creative), Ender Eye (Spectator inactive).
+// F3-hold gamemode switcher (like vanilla MC 1.20).
+// Hold F3 to open, press F4 to cycle, release to fade out + apply.
+// 4 slots: Survival (sword), Creative (block), Spectator (eye), Adventure (inactive grass).
 class GamemodeMenu {
 public:
     bool load();
     void unload();
 
-    bool isOpen() const noexcept { return m_open; }
+    bool isOpen() const noexcept { return m_state != State::Closed; }
+    float fadeAlpha() const noexcept { return m_fade; }
 
-    void open();        // EnableCursor() + GetMouseDelta()
-    void close();       // triggers takeModeChange
-
-    void update(float dt);
+    // Call every frame. currentMode is used to initialise selection on open.
+    void update(float dt, GameMode currentMode);
     void draw(const TextureAtlas& atlas) const;
 
-    // Resets the auto-close timer (call while F3 is held).
-    void resetTimer() noexcept { m_timer = 2.5f; }
-
-    // Cycle to the next active gamemode (Survival ↔ Creative).
-    void cycle();
-
-    // Returns true once after close(), writes the selected GameMode.
+    // Returns true once after fade-out completes, writes the applied GameMode.
     bool takeModeChange(GameMode& outMode);
+    GameMode selectedMode() const noexcept { return slotToMode(m_selected); }
 
 private:
-    bool m_open    = false;
-    float m_timer = 0.0f;
-    int   m_selected = 0;      // slot index: 0=Survival, 2=Creative
-    bool  m_modeChanged = false;
+    enum class State : uint8_t { Closed, Open, Closing };
+
+    static bool   isActiveSlot(int slot) noexcept { return slot != 3; }
+    static GameMode slotToMode(int slot) noexcept;
+    static int    modeToSlot(GameMode mode) noexcept;
+    void cycle() noexcept;
+
+    State   m_state   = State::Closed;
+    float   m_fade    = 0.0f;
+    int     m_selected = 0;     // 0=Survival, 1=Creative, 2=Spectator, 3=Adventure(inactive)
+    bool    m_modeChanged = false;
     GameMode m_pendingMode = GameMode::Survival;
 
-    Texture2D m_swordTex{};
-    Texture2D m_eyeTex{};
+    Texture2D m_bgTex{};      // gamemode_switcher.png
+    Texture2D m_swordTex{};   // diamond_sword.png
+    Texture2D m_eyeTex{};     // ender_eye.png
     bool m_loaded = false;
 };
 

@@ -94,6 +94,14 @@ int main() {
             (void)GetMouseDelta();
         }
 
+        // ── Gamemode switcher (must update BEFORE gameplay computation) ──
+        gamemodeMenu.update(dt, player.gameMode());
+        {
+            GameMode newGm;
+            if (gamemodeMenu.takeModeChange(newGm))
+                player.setGameMode(newGm);
+        }
+
         // ── Compute gameplay AFTER input (prevents camera spike on UI open) ──
         const bool gameplay = !menu.isOpen() && !invScreen.isOpen() && !gamemodeMenu.isOpen();
 
@@ -107,25 +115,6 @@ int main() {
         // ── World ──
         world.update(player.camera().get().position);
         world.processUploads(atlas);
-
-        // ── Gamemode menu (F3 + F4) ──
-        if (!gamemodeMenu.isOpen()) {
-            // Combo: press F3 while F4 held, or press F4 while F3 held.
-            if ((IsKeyPressed(KEY_F3) && IsKeyDown(KEY_F4)) ||
-                (IsKeyPressed(KEY_F4) && IsKeyDown(KEY_F3))) {
-                gamemodeMenu.open();
-                player.camera().skipNextMouseFrame();
-            }
-        } else {
-            if (IsKeyDown(KEY_F3)) gamemodeMenu.resetTimer();
-            if (IsKeyPressed(KEY_F4)) gamemodeMenu.cycle();
-            gamemodeMenu.update(dt);
-        }
-        {
-            GameMode newGm;
-            if (gamemodeMenu.takeModeChange(newGm))
-                player.setGameMode(newGm);
-        }
 
         // ── Player ──
         player.update(dt, world, gameplay);
