@@ -73,6 +73,7 @@ set(SOURCES
     src/ui/PauseMenu.cpp
     src/ui/Inventory.cpp
     src/ui/HotbarRenderer.cpp
+    src/ui/InventoryScreen.cpp
 
     src/core/ThreadPool.cpp
     src/core/TaskQueue.cpp
@@ -102,6 +103,7 @@ set(HEADERS
     src/ui/ItemStack.hpp
     src/ui/Inventory.hpp
     src/ui/HotbarRenderer.hpp
+    src/ui/InventoryScreen.hpp
 
     src/core/ThreadPool.hpp
     src/core/TaskQueue.hpp
