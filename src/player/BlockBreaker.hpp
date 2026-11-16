@@ -18,6 +18,7 @@ public:
                 World& world, ParticleSystem& particles);
     void reset();
     void drawCrack() const;
+    bool isBreaking() const noexcept { return m_active; }
 
 private:
     bool    m_active = false;

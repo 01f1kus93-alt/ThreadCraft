@@ -26,6 +26,9 @@ public:
     GameMode gameMode() const noexcept { return m_gameMode; }
     void setGameMode(GameMode m) noexcept { m_gameMode = m; m_velocity = {0.0f, 0.0f, 0.0f}; }
 
+    const Texture2D& skinTexture() const noexcept { return m_skinTex; }
+    float swingAngle() const noexcept { return m_swingAngle; }
+
     void update(float dt, World& world, bool gameplayEnabled);
     bool handleInteraction(float dt, World& world, ParticleSystem& particles,
                            ItemEntityManager& items, bool gameplayEnabled);
@@ -33,6 +36,7 @@ public:
 private:
     void applySurvivalPhysics(float dt, World& world);
     bool collidesWithWorld(const World& world) const;
+    void updateSwing(float dt);
 
     FlyCamera    m_camera;
     Inventory    m_inventory;
@@ -48,6 +52,11 @@ private:
     float    m_eyeHeight = 1.62f;
     float    m_playerHeight = 1.8f;
     float    m_playerWidth = 0.6f;
+
+    Texture2D m_skinTex{};
+    float     m_swingAngle = 0.0f;
+    float     m_swingProgress = 1.0f;
+    float     m_swingCooldown = 0.0f;
 };
 
 } // namespace mc

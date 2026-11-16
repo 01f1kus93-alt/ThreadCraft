@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <raymath.h>
 #include <rlgl.h>
+#include <cmath>
 
 namespace mc {
 
@@ -170,6 +171,35 @@ void Renderer::drawFrameGraph() const {
     }
 
     DrawText(TextFormat("%.2f ms", GetFrameTime() * 1000.0f), graphX, graphY + graphHeight + 5, 20, LIME);
+}
+
+void Renderer::drawPlayerArm(const Texture2D& tex, float swingAngle) const {
+    const int sw = GetScreenWidth();
+    const int sh = GetScreenHeight();
+
+    const int armW = sh / 4;
+    const int armH = sh / 2;
+    const int armX = sw - armW * 2 / 3;
+    const int armY = sh - armH * 3 / 4;
+
+    // Swing offset: the arm slides up/left as the swing angle increases.
+    const float offsetY = std::sin(swingAngle) * sh / 20.0f;
+    const float offsetX = std::cos(swingAngle) * sw / 40.0f;
+
+    const Rectangle dst = {
+        (float)armX - offsetX,
+        (float)armY + offsetY,
+        (float)armW,
+        (float)armH
+    };
+
+    if (tex.id != 0) {
+        // Back face of the right arm (Steve 64x64 skin: 4x12 px).
+        const Rectangle src = { 52.0f, 20.0f, 4.0f, 12.0f };
+        DrawTexturePro(tex, src, dst, { 0.0f, 0.0f }, -15.0f, WHITE);
+    } else {
+        DrawRectanglePro(dst, { 0.0f, 0.0f }, -15.0f, Color{ 190, 150, 120, 255 });
+    }
 }
 
 } // namespace mc

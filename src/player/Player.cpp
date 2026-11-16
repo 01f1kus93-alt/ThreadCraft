@@ -10,7 +10,27 @@
 namespace mc {
 
 bool Player::load() {
-    return m_breaker.load();
+    const bool breakerOk = m_breaker.load();
+
+    // Player skin for the first-person arm. Prefer Steve (4px arm), fall back
+    // to Alex wide/slim, otherwise draw a procedural rectangle.
+    const char* skinPaths[] = {
+        "assets/minecraft/textures/entity/player/wide/steve.png",
+        "assets/minecraft/textures/entity/player/wide/alex.png",
+        "assets/minecraft/textures/entity/player/slim/alex.png",
+    };
+    for (const char* path : skinPaths) {
+        m_skinTex = LoadTexture(path);
+        if (m_skinTex.id != 0) {
+            SetTextureFilter(m_skinTex, TEXTURE_FILTER_POINT);
+            break;
+        }
+    }
+    if (m_skinTex.id == 0) {
+        TraceLog(LOG_WARNING, "Player skin not found, using procedural arm");
+    }
+
+    return breakerOk;
 }
 
 void Player::update(float dt, World& world, bool gameplayEnabled) {
@@ -32,6 +52,8 @@ void Player::update(float dt, World& world, bool gameplayEnabled) {
         m_camera.updateLookOnly(dt);
         applySurvivalPhysics(dt, world);
     }
+
+    updateSwing(dt);
 }
 
 void Player::applySurvivalPhysics(float dt, World& world) {
@@ -109,6 +131,31 @@ bool Player::collidesWithWorld(const World& world) const {
             for (int z = z0; z <= z1; ++z)
                 if (BlockRegistry::get(world.getBlock(x, y, z)).isSolid) return true;
     return false;
+}
+
+void Player::updateSwing(float dt) {
+    if (m_swingCooldown > 0.0f) m_swingCooldown -= dt;
+
+    // Start a fresh swing when mining or placing (cooldown-limited).
+    const bool wantSwing =
+        m_breaker.isBreaking() ||
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
+        IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
+    if (wantSwing && m_swingCooldown <= 0.0f) {
+        m_swingCooldown = 0.25f;
+        m_swingProgress = 0.0f;
+    }
+
+    // Half-sine swing: rises to PI/2 in ~0.13s, then eases back to rest.
+    constexpr float kPi     = 3.14159265f;
+    constexpr float kHalfPi = kPi * 0.5f;
+    if (m_swingProgress < 1.0f) {
+        m_swingProgress += dt / 0.25f;
+        if (m_swingProgress > 1.0f) m_swingProgress = 1.0f;
+        m_swingAngle = std::sin(m_swingProgress * kPi) * kHalfPi;
+    } else {
+        m_swingAngle = 0.0f;
+    }
 }
 
 bool Player::handleInteraction(float dt, World& world, ParticleSystem& particles,

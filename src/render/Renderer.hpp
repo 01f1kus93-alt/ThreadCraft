@@ -20,6 +20,7 @@ public:
     void drawCrosshair() const;
     void drawDebugInfo(const World& world, const Camera3D& cam, const ItemStack& selected) const;
     void drawFrameGraph() const;
+    void drawPlayerArm(const Texture2D& tex, float swingAngle) const;
 
 private:
     static constexpr int GRAPH_SIZE = 120;

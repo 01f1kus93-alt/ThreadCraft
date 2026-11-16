@@ -129,6 +129,11 @@ int main() {
 
         EndMode3D();
 
+        // ── First-person arm (2D sprite, behind hotbar/HUD) ──
+        if (gameplay) {
+            renderer.drawPlayerArm(player.skinTexture(), player.swingAngle());
+        }
+
         // ── 2D UI ──
         if (!invScreen.isOpen()) {
             hotbar.draw(player.inventory(), atlas);
