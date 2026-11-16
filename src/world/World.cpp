@@ -158,7 +158,7 @@ size_t World::chunkCount() const {
 }
 
 void World::requestChunksAround(ChunkCoord playerChunk, const Vector3* velocityDir) {
-    const int R  = config::GENERATION_DISTANCE;
+    const int R  = m_renderDistance.load();
     const int R2 = R * R;
     constexpr int terrainMaxCy = (config::TERRAIN_BASE_HEIGHT + (int)config::TERRAIN_AMPLITUDE) / config::CHUNK_SIZE_Y;
     const int cyLo = std::max(0, std::min(playerChunk.y - 1, terrainMaxCy));
@@ -316,8 +316,7 @@ void World::processUploads(const TextureAtlas&) {
             memcpy(mesh.colors,    data->opaque.colors.data(),    sizeof(unsigned char) * data->opaque.colors.size());
             memcpy(mesh.indices,   data->opaque.indices.data(),   sizeof(unsigned short) * data->opaque.indices.size());
             UploadMesh(&mesh, false);
-            MemFree(mesh.colors); // UploadMesh скопировал данные в VRAM
-            mesh.colors = nullptr;
+            // ВАЖНО: НЕ ОСВОБОЖДАЕМ mesh.colors, иначе DrawMesh не передаст цвета в шейдер!
             chunk->opaqueMesh = mesh;
             chunk->hasOpaqueMesh = true;
         }
@@ -337,8 +336,6 @@ void World::processUploads(const TextureAtlas&) {
             memcpy(mesh.colors,    data->transparent.colors.data(),    sizeof(unsigned char) * data->transparent.colors.size());
             memcpy(mesh.indices,   data->transparent.indices.data(),   sizeof(unsigned short) * data->transparent.indices.size());
             UploadMesh(&mesh, false);
-            MemFree(mesh.colors); // UploadMesh скопировал данные в VRAM
-            mesh.colors = nullptr;
             chunk->transparentMesh = mesh;
             chunk->hasTransparentMesh = true;
         }
@@ -365,8 +362,9 @@ void World::update(Vector3 playerPos) {
         return;
     }
 
+    const bool dirty = m_renderDistanceDirty.exchange(false);
     m_updateTimer += GetFrameTime();
-    if ((playerChunk != m_lastPlayerChunk) || (m_updateTimer >= config::UPDATE_INTERVAL_SEC)) {
+    if ((playerChunk != m_lastPlayerChunk) || dirty || (m_updateTimer >= config::UPDATE_INTERVAL_SEC)) {
         m_lastPlayerChunk = playerChunk;
         m_updateTimer = 0.0f;
         const Vector3* vd = (Vector3LengthSqr(velocityDir) > 0.5f) ? &velocityDir : nullptr;
@@ -375,8 +373,14 @@ void World::update(Vector3 playerPos) {
     }
 }
 
+void World::setRenderDistance(int v) {
+    v = std::clamp(v, config::RENDER_DISTANCE_MIN, config::RENDER_DISTANCE_MAX);
+    m_renderDistance.store(v);
+    m_renderDistanceDirty.store(true);
+}
+
 void World::unloadDistantChunks(ChunkCoord playerChunk) {
-    const int R2 = config::RENDER_DISTANCE_UNLOAD * config::RENDER_DISTANCE_UNLOAD;
+    const int R2 = (m_renderDistance.load() + 2) * (m_renderDistance.load() + 2);
     std::vector<ChunkPtr> removed;
     removed.reserve(64);
 

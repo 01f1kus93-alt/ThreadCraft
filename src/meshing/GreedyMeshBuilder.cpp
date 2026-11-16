@@ -11,14 +11,12 @@ namespace mc {
 
 namespace {
     BlockID getBlock(const Chunk& chunk, const std::shared_ptr<Chunk> neighbors[6], int lx, int ly, int lz) {
-        // 1. Если внутри текущего чанка — просто возвращаем блок
         if (lx >= 0 && lx < config::CHUNK_SIZE_X &&
             ly >= 0 && ly < config::CHUNK_SIZE_Y &&
             lz >= 0 && lz < config::CHUNK_SIZE_Z) {
             return chunk.getFast(lx, ly, lz);
         }
 
-        // 2. Если снаружи — пытаемся найти соседний чанк
         int nx = lx, ny = ly, nz = lz;
         int faceIdx = -1;
 
@@ -29,7 +27,6 @@ namespace {
         else if (lz < 0) { faceIdx = 4; nz += config::CHUNK_SIZE_Z; }
         else if (lz >= config::CHUNK_SIZE_Z) { faceIdx = 5; nz -= config::CHUNK_SIZE_Z; }
 
-        // Проверяем, что координаты соседа не вышли за его пределы (диагональные запросы)
         if (faceIdx != -1 && nx >= 0 && nx < config::CHUNK_SIZE_X &&
             ny >= 0 && ny < config::CHUNK_SIZE_Y &&
             nz >= 0 && nz < config::CHUNK_SIZE_Z) {
@@ -40,7 +37,6 @@ namespace {
 
         return BLOCK_AIR;
     }
-    // Цвета граней для имитации освещения (Vertex Colors)
     constexpr unsigned char FACE_COLORS[6][4] = {
         {190, 190, 190, 255}, // NegX
         {190, 190, 190, 255}, // PosX
@@ -59,8 +55,6 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
     if (!chunk.hasBlocks) return meshes;
 
     int size[3] = { config::CHUNK_SIZE_X, config::CHUNK_SIZE_Y, config::CHUNK_SIZE_Z };
-    // Не мешируем пустоту выше самого высокого блока чанка:
-    // по оси Y проходим до maxY включительно (верхняя грань блока на maxY).
     if (chunk.maxY + 1 < size[1]) size[1] = chunk.maxY + 1;
     const int worldBase[3] = {
         chunk.coord().x * config::CHUNK_SIZE_X,
@@ -69,10 +63,7 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
     };
 
     std::vector<int> mask;
-    // Максимальное слияние граней. При слиянии мы упаковываем w/h в unsigned char,
-    // поэтому практический максимум — 255. Кастомный шейдер (greedy) замостит
-    // (tile) текстуру внутри полигона, используя w и h из вершинных цветов.
-    const int MAX_MERGE = std::min(config::MAX_MERGE, 255); // Не более 255 (unsigned char) 
+    const int MAX_MERGE = std::min(config::MAX_MERGE, 255); 
 
     for (int d = 0; d < 3; ++d) {
         const int u = (d + 1) % 3;
@@ -94,19 +85,16 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
 
                     bool a_opq = (a != BLOCK_AIR) && BlockRegistry::get(a).isOpaque;
                     bool b_opq = (b != BLOCK_AIR) && BlockRegistry::get(b).isOpaque;
-                    bool a_trans = (a != BLOCK_AIR) && BlockRegistry::get(a).isTransparent;
-                    bool b_trans = (b != BLOCK_AIR) && BlockRegistry::get(b).isTransparent;
-
                     bool a_leaf = (a == BlockRegistry::LEAVES), b_leaf = (b == BlockRegistry::LEAVES);
                     bool a_water = (a == BlockRegistry::WATER), b_water = (b == BlockRegistry::WATER);
                     int face_id = 0;
                     if (a != b) {
                         if ((a_leaf && b_leaf) || (a_water && b_water)) {
-                            // Листва-листва и вода-вода: грань не рисуем.
+                            // Грани между листвой/водой не рисуем
                         } else if (a != BLOCK_AIR && !b_opq) {
-                            face_id = (int)a * 2 + 1; // Грань блока a
+                            face_id = (int)a * 2 + 1;
                         } else if (b != BLOCK_AIR && !a_opq) {
-                            face_id = (int)b * 2 + 0; // Грань блока b
+                            face_id = (int)b * 2 + 0;
                         }
                     }
                     mask[n] = face_id;
@@ -116,18 +104,14 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
             n = 0;
             for (int j = 0; j < sizeV; ++j) {
                 for (int i = 0; i < sizeU; ) {
-                    // Восстанавливаем координаты для текущего полигона
                     x[v] = j;
                     x[u] = i;
 
                     const int c = mask[n];
                     if (c != 0) {
-                        // Вода никогда не сливается в один полигон: каждый блок воды —
-                        // отдельный квадрат 1×1, иначе UV растянутся на весь полигон.
                         const bool mergeable = (BlockID)(c / 2) != BlockRegistry::WATER;
 
                         int w = 1;
-                        // Так как MAX_MERGE = 1, циклы слияния по ширине и высоте не будут выполняться дальше 1
                         while (mergeable && i + w < sizeU && mask[n + w] == c && w < MAX_MERGE) ++w;
 
                         int h = 1;
@@ -156,9 +140,6 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
                         p[0] = (float)x[0] + worldBase[0];
                         p[1] = (float)x[1] + worldBase[1];
                         p[2] = (float)x[2] + worldBase[2];
-                        // Граница между ячейкой x[d] и x[d]+1 всегда находится в x[d]+1,
-                        // независимо от того, положительная это грань (блока a) или
-                        // отрицательная (блока b). Поэтому смещение +1 безусловное.
                         p[d] += 1.0f;
 
                         float vx[4][3];
@@ -169,7 +150,6 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
                                 vx[2][0] = p[0]+du[0]; vx[2][1] = p[1]+du[1]; vx[2][2] = p[2]+du[2];
                                 vx[3][0] = p[0]+du[0]+dv[0]; vx[3][1] = p[1]+du[1]+dv[1]; vx[3][2] = p[2]+du[2]+dv[2];
                             } else if (d == 1) {
-                                // ИСПРАВЛЕНО: Правильный порядок обхода (CCW) для верхней грани
                                 vx[0][0] = p[0];             vx[0][1] = p[1];             vx[0][2] = p[2];
                                 vx[1][0] = p[0]+du[0];       vx[1][1] = p[1]+du[1];       vx[1][2] = p[2]+du[2];
                                 vx[2][0] = p[0]+du[0]+dv[0]; vx[2][1] = p[1]+du[1]+dv[1]; vx[2][2] = p[2]+du[2]+dv[2];
@@ -206,35 +186,26 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
 
                         const unsigned char brightness = FACE_COLORS[face_dir][0];
 
-                        // Определяем, сколько раз текстура повторяется по U и V для данной грани.
-                        // Геометрические w (вдоль оси u) и h (вдоль оси v) могут не совпадать
-                        // с осями текстуры U и V — зависит от того, как ориентирована грань.
+                        // ОРИГИНАЛЬНЫЕ И ПРАВИЛЬНЫЕ repeat_u / repeat_v
                         float repeat_u = 1.0f;
                         float repeat_v = 1.0f;
 
                         if (d == 0) {
-                            // X-грани (боковые): U идет вдоль Z (h), V идет вдоль Y (w)
                             repeat_u = (float)h;
                             repeat_v = (float)w;
                         } else if (d == 1) {
-                            // Y-грани (верх/низ)
                             if (posFace) {
-                                // Верхняя грань: U вдоль Z (w), V вдоль X (h)
                                 repeat_u = (float)w;
                                 repeat_v = (float)h;
                             } else {
-                                // Нижняя грань: U вдоль X (h), V вдоль Z (w)
                                 repeat_u = (float)h;
                                 repeat_v = (float)w;
                             }
                         } else {
-                            // Z-грани: U вдоль X (w), V вдоль Y (h)
                             repeat_u = (float)w;
                             repeat_v = (float)h;
                         }
 
-                        // Упаковываем в vertex colors: R=tileIndex, G=repeat_u, B=repeat_v, A=brightness
-                        // В шейдере raylib нормализует unsigned char в [0,1], мы распаковываем *255.
                         for (int i_v = 0; i_v < 4; ++i_v) {
                             target.vertices.push_back(vx[i_v][0]);
                             target.vertices.push_back(vx[i_v][1]);

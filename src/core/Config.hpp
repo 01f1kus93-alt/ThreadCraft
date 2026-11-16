@@ -10,9 +10,11 @@ inline constexpr int CHUNK_SIZE_Z = 16;
 inline constexpr int CHUNK_VOLUME = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
 
 // ─────────────── World ───────────────
-inline constexpr int  RENDER_DISTANCE        = 24;
-inline constexpr int  GENERATION_DISTANCE    = 24;
-inline constexpr int  RENDER_DISTANCE_UNLOAD = 24;
+inline constexpr int  RENDER_DISTANCE        = 24;   // Значение по умолчанию; меняется рантайм-слайдером
+inline constexpr int  GENERATION_DISTANCE    = RENDER_DISTANCE + 1;   // legacy, заменено m_renderDistance
+inline constexpr int  RENDER_DISTANCE_UNLOAD = RENDER_DISTANCE;       // legacy, заменено m_renderDistance + 2
+inline constexpr int  RENDER_DISTANCE_MIN    = 4;
+inline constexpr int  RENDER_DISTANCE_MAX    = 32;
 inline constexpr int  SEED                   = 1337;
 
 // ─────────────── Terrain ───────────────
@@ -22,7 +24,7 @@ inline constexpr float TERRAIN_NOISE_SCALE = 0.02f;
 inline constexpr int   SEA_LEVEL           = 55;
 
 // ─────────────── Threading ───────────────
-inline constexpr int MAX_WORKER_THREADS = 20;
+inline constexpr int MAX_WORKER_THREADS = 22;
 
 // ─────────────── Rendering / Uploads ───────────────
 inline constexpr int   MAX_UPLOADS_PER_FRAME = 64;

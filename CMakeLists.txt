@@ -70,6 +70,8 @@ endif()
 set(SOURCES
     src/main.cpp
 
+    src/ui/PauseMenu.cpp
+
     src/core/ThreadPool.cpp
     src/core/TaskQueue.cpp
 
@@ -89,6 +91,9 @@ set(SOURCES
 )
 
 set(HEADERS
+    src/ui/McFont.hpp
+    src/ui/PauseMenu.hpp
+
     src/core/ThreadPool.hpp
     src/core/TaskQueue.hpp
     src/core/Types.hpp

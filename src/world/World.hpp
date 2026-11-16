@@ -1,4 +1,5 @@
 #pragma once
+#include "core/Config.hpp"
 #include "core/Types.hpp"
 #include "core/ThreadPool.hpp"
 #include "world/Chunk.hpp"
@@ -10,6 +11,7 @@
 #include <queue>
 #include <mutex>
 #include <vector>
+#include <atomic>
 
 namespace mc {
 
@@ -48,6 +50,9 @@ public:
     const auto& chunks() const noexcept { return m_chunks; }
     size_t chunkCount() const;
 
+    int  renderDistance() const noexcept { return m_renderDistance.load(); }
+    void setRenderDistance(int v);
+
 private:
     void requestChunksAround(ChunkCoord playerChunk, const Vector3* velocityDir);
     void requestMesh(ChunkCoord coord);
@@ -68,6 +73,9 @@ private:
     Vector3    m_lastPlayerPos{0, 0, 0};
     bool       m_firstUpdate  = true;
     float      m_updateTimer  = 0.0f;
+
+    std::atomic<int>  m_renderDistance{config::RENDER_DISTANCE};
+    std::atomic<bool> m_renderDistanceDirty{false};
 };
 
 } // namespace mc
