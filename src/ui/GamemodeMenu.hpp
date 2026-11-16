@@ -8,7 +8,7 @@ class TextureAtlas;
 
 // F3-hold gamemode switcher (like vanilla MC 1.20).
 // Hold F3 to open, press F4 to cycle, release to fade out + apply.
-// 4 slots: Survival (sword), Creative (block), Spectator (eye), Adventure (inactive grass).
+// 4 slots: Creative (grass block), Survival (sword), Adventure (inactive grass), Spectator (eye).
 class GamemodeMenu {
 public:
     bool load();
@@ -28,16 +28,16 @@ public:
 private:
     enum class State : uint8_t { Closed, Open, Closing };
 
-    static bool   isActiveSlot(int slot) noexcept { return slot != 3; }
+    static bool   isActiveSlot(int slot) noexcept { return slot != 2; }
     static GameMode slotToMode(int slot) noexcept;
     static int    modeToSlot(GameMode mode) noexcept;
     void cycle() noexcept;
 
     State   m_state   = State::Closed;
     float   m_fade    = 0.0f;
-    int     m_selected = 0;     // 0=Survival, 1=Creative, 2=Spectator, 3=Adventure(inactive)
+    int     m_selected = 0;     // 0=Creative, 1=Survival, 2=Adventure(inactive), 3=Spectator
     bool    m_modeChanged = false;
-    GameMode m_pendingMode = GameMode::Survival;
+    GameMode m_pendingMode = GameMode::Creative;
 
     Texture2D m_bgTex{};      // gamemode_switcher.png
     Texture2D m_swordTex{};   // diamond_sword.png
