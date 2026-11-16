@@ -17,9 +17,9 @@ namespace {
     }
 
     // ─────────────── Биомы ───────────────
-    constexpr int   BIOME_MOUNTAIN_MIN_HEIGHT = 90;   // выше → горный биом
+    constexpr int   BIOME_MOUNTAIN_MIN_HEIGHT = 93;   // выше → горный биом
     constexpr int   BIOME_MOUNTAIN_STONE_TOP  = 100;  // выше → каменная вершина
-    constexpr float MOUNTAIN_AMP_MULT         = 1.5f; // усиление амплитуды гор
+    constexpr float MOUNTAIN_AMP_MULT         = 1.3f; // усиление амплитуды гор
 
     // FBm-шум в FastNoiseLite фактически даёт ~[-0.72, 0.61], а не [-1, 1],
     // поэтому рельеф не достигает проектного диапазона (TERRAIN_AMPLITUDE=32).

@@ -19,7 +19,7 @@ inline constexpr int  SEED                   = 1337;
 
 // ─────────────── Terrain ───────────────
 inline constexpr int   TERRAIN_BASE_HEIGHT = 64;
-inline constexpr float TERRAIN_AMPLITUDE   = 32.0f;
+inline constexpr float TERRAIN_AMPLITUDE   = 28.0f;
 inline constexpr float TERRAIN_NOISE_SCALE = 0.02f;
 inline constexpr int   SEA_LEVEL           = 55;
 
