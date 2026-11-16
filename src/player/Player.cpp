@@ -35,15 +35,17 @@ void Player::update(float dt, World& world, bool gameplayEnabled) {
     }
     m_inventory.scrollSelect((int)GetMouseWheelMove());
 
-    // Double-space flight toggle (works in all modes)
-    if (m_spaceTapTimer > 0.0f) m_spaceTapTimer -= dt;
-    if (IsKeyPressed(KEY_SPACE)) {
-        if (m_spaceTapTimer > 0.0f) {
-            m_flying = !m_flying;
-            m_spaceTapTimer = 0.0f;
-            if (m_flying) m_velocity.y = 0.0f;  // cancel fall
-        } else {
-            m_spaceTapTimer = DOUBLE_TAP_WINDOW;
+    // Double-space flight toggle (Creative / Spectator only)
+    if (m_gameMode == GameMode::Creative || m_gameMode == GameMode::Spectator) {
+        if (m_spaceTapTimer > 0.0f) m_spaceTapTimer -= dt;
+        if (IsKeyPressed(KEY_SPACE)) {
+            if (m_spaceTapTimer > 0.0f) {
+                m_flying = !m_flying;
+                m_spaceTapTimer = 0.0f;
+                if (m_flying) m_velocity.y = 0.0f;  // cancel fall
+            } else {
+                m_spaceTapTimer = DOUBLE_TAP_WINDOW;
+            }
         }
     }
 
