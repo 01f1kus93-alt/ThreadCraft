@@ -2,6 +2,7 @@
 #include "core/Config.hpp"
 #include <raylib.h>
 #include <string>
+#include <array>
 
 namespace mc {
 
@@ -18,10 +19,14 @@ public:
     bool isLoaded() const noexcept { return m_loaded; }
 
     TileUV tileUV(int tileIndex) const noexcept;
+    Color  centerColor(int tileIndex) const noexcept;
 
 private:
     Texture2D m_texture{};
     bool m_loaded = false;
+
+    std::array<Color, config::ATLAS_COLUMNS * config::ATLAS_ROWS> m_centerColors{};
+    bool m_hasCenterColors = false;
 };
 
 // Глобальный указатель для доступа из рабочих потоков

@@ -150,6 +150,17 @@ bool TextureAtlas::load(const std::string& blockDir) {
         UnloadImage(tile);
     }
 
+    // Cache the center-pixel color of each tile (particles / entity cubes).
+    m_centerColors.fill(WHITE);
+    for (const auto& tf : TILE_FILES) {
+        const int col = tf.index % config::ATLAS_COLUMNS;
+        const int row = tf.index / config::ATLAS_COLUMNS;
+        const int px  = col * pitch + pad + config::ATLAS_TILE_SIZE / 2;
+        const int py  = row * pitch + pad + config::ATLAS_TILE_SIZE / 2;
+        m_centerColors[tf.index] = reinterpret_cast<Color*>(atlas.data)[py * atlasW + px];
+    }
+    m_hasCenterColors = true;
+
     m_texture = LoadTextureFromImage(atlas);
     UnloadImage(atlas);
 
@@ -200,6 +211,12 @@ TileUV TextureAtlas::tileUV(int tileIndex) const noexcept {
         u0 + tu,
         v0 + tv
     };
+}
+
+Color TextureAtlas::centerColor(int tileIndex) const noexcept {
+    if (tileIndex < 0 || tileIndex >= (int)m_centerColors.size() || !m_hasCenterColors)
+        return WHITE;
+    return m_centerColors[tileIndex];
 }
 
 } // namespace mc
