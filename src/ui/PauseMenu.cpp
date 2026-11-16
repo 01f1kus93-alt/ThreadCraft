@@ -1,4 +1,5 @@
 #include "ui/PauseMenu.hpp"
+#include "ui/GuiScale.hpp"
 #include "core/Config.hpp"
 #include <string>
 #include <cmath>
@@ -35,13 +36,6 @@ const Button BUTTONS[] = {
 
 constexpr const char* TITLE = "Game Menu";
 constexpr int TITLE_Y       = 40;
-
-int guiScale() noexcept {
-    const int w = GetScreenWidth(), h = GetScreenHeight();
-    int s = 1;
-    while (s < 6 && (s + 1) * 320 <= w && (s + 1) * 240 <= h) ++s;
-    return s;
-}
 
 std::u32string toU32(const char* s) {
     std::u32string out;
