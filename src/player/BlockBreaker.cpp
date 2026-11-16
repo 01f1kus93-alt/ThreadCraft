@@ -18,7 +18,7 @@ namespace {
         rlDisableShader();               // ensure default shader after greedy pass
         rlSetTexture(tex.id);
         rlBegin(RL_QUADS);
-        rlColor4ub(255, 255, 255, 255);
+        rlColor4ub(255, 255, 255, 120);
 
         // +X (normal → +X)
         rlTexCoord2f(0, 0); rlVertex3f(c.x + h, c.y - h, c.z + h);
