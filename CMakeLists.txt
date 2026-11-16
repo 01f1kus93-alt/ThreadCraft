@@ -82,6 +82,7 @@ set(SOURCES
     src/world/Chunk.cpp
     src/world/World.cpp
     src/world/WorldGenerator.cpp
+    src/world/ParticleSystem.cpp
 
     src/meshing/GreedyMeshBuilder.cpp
 
@@ -110,6 +111,7 @@ set(HEADERS
     src/world/Chunk.hpp
     src/world/World.hpp
     src/world/WorldGenerator.hpp
+    src/world/ParticleSystem.hpp
 
     src/meshing/GreedyMeshBuilder.hpp
 
