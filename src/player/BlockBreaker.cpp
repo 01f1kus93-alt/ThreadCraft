@@ -11,8 +11,8 @@
 namespace mc {
 
 namespace {
-    // raylib 6.0 removed DrawCubeTextureRec, so draw a full-texture quad on
-    // all 6 cube faces via rlgl primitives (default shader, white tint).
+    // Draw a full-texture quad on all 6 cube faces via rlgl primitives, with
+    // CCW-outward winding (verified by cross-product normal check).
     void drawCrackCube(const Texture2D& tex, Vector3 c, float size) {
         const float h = size * 0.5f;
         rlDisableShader();               // ensure default shader after greedy pass
@@ -20,27 +20,27 @@ namespace {
         rlBegin(RL_QUADS);
         rlColor4ub(255, 255, 255, 255);
 
-        // +X
-        rlTexCoord2f(0, 0); rlVertex3f(c.x + h, c.y - h, c.z - h);
-        rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y - h, c.z + h);
-        rlTexCoord2f(1, 1); rlVertex3f(c.x + h, c.y + h, c.z + h);
-        rlTexCoord2f(0, 1); rlVertex3f(c.x + h, c.y + h, c.z - h);
-        // -X
-        rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y - h, c.z + h);
-        rlTexCoord2f(1, 0); rlVertex3f(c.x - h, c.y - h, c.z - h);
-        rlTexCoord2f(1, 1); rlVertex3f(c.x - h, c.y + h, c.z - h);
-        rlTexCoord2f(0, 1); rlVertex3f(c.x - h, c.y + h, c.z + h);
-        // +Y
+        // +X (normal → +X)
+        rlTexCoord2f(0, 0); rlVertex3f(c.x + h, c.y - h, c.z + h);
+        rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y - h, c.z - h);
+        rlTexCoord2f(1, 1); rlVertex3f(c.x + h, c.y + h, c.z - h);
+        rlTexCoord2f(0, 1); rlVertex3f(c.x + h, c.y + h, c.z + h);
+        // -X (normal → -X)
+        rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y - h, c.z - h);
+        rlTexCoord2f(1, 0); rlVertex3f(c.x - h, c.y - h, c.z + h);
+        rlTexCoord2f(1, 1); rlVertex3f(c.x - h, c.y + h, c.z + h);
+        rlTexCoord2f(0, 1); rlVertex3f(c.x - h, c.y + h, c.z - h);
+        // +Y (normal → +Y)
         rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y + h, c.z - h);
-        rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y + h, c.z - h);
-        rlTexCoord2f(1, 1); rlVertex3f(c.x + h, c.y + h, c.z + h);
+        rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y + h, c.z + h);
+        rlTexCoord2f(1, 1); rlVertex3f(c.x + h, c.y + h, c.z - h);
         rlTexCoord2f(0, 1); rlVertex3f(c.x - h, c.y + h, c.z + h);
-        // -Y
-        rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y - h, c.z + h);
-        rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y - h, c.z + h);
-        rlTexCoord2f(1, 1); rlVertex3f(c.x + h, c.y - h, c.z - h);
-        rlTexCoord2f(0, 1); rlVertex3f(c.x - h, c.y - h, c.z - h);
-        // +Z
+        // -Y (normal → -Y)
+        rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y - h, c.z - h);
+        rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y - h, c.z - h);
+        rlTexCoord2f(1, 1); rlVertex3f(c.x + h, c.y - h, c.z + h);
+        rlTexCoord2f(0, 1); rlVertex3f(c.x - h, c.y - h, c.z + h);
+        // +Z (normal → +Z)
         rlTexCoord2f(0, 0); rlVertex3f(c.x - h, c.y - h, c.z + h);
         rlTexCoord2f(1, 0); rlVertex3f(c.x + h, c.y - h, c.z + h);
         rlTexCoord2f(1, 1); rlVertex3f(c.x + h, c.y + h, c.z + h);
@@ -141,9 +141,9 @@ void BlockBreaker::drawCrack() const {
     rlDisableBackfaceCulling();  // crack overlay must be visible from all 6 sides
     if (m_crackLoaded) {
         const int stage = std::clamp(m_stage, 0, 9);
-        drawCrackCube(m_crackTex[stage], center, 1.002f);
+        drawCrackCube(m_crackTex[stage], center, 1.004f);
     } else {
-        DrawCube(center, 1.002f, 1.002f, 1.002f, Color{ 0, 0, 0, (uint8_t)(m_stage * 22) });
+        DrawCube(center, 1.004f, 1.004f, 1.004f, Color{ 0, 0, 0, (uint8_t)(m_stage * 22) });
     }
     rlEnableBackfaceCulling();
     rlEnableDepthMask();
