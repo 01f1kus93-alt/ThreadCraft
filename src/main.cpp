@@ -25,8 +25,8 @@ int main() {
     BlockRegistry::init();
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(1280, 720, "ThreadCraft — Stage 1: Render Optimization");
-    SetTargetFPS(300);
+    InitWindow(1280, 720, "ThreadCraft");
+    SetTargetFPS(3000);
     SetExitKey(KEY_NULL);
 
     TextureAtlas atlas;
@@ -92,7 +92,7 @@ int main() {
         world.processUploads(atlas);
 
         // ── Player ──
-        player.update(dt, gameplay);
+        player.update(dt, world, gameplay);
         if (gameplay) {
             player.handleInteraction(dt, world, particles, items);
         }
