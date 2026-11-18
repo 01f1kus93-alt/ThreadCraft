@@ -157,7 +157,7 @@ int WorldGenerator::bedrockTopAt(int wx, int wz) const noexcept {
     return 1 + (int)((n * 0.5f + 0.5f) * 5.0f);
 }
 
-void WorldGenerator::generate(Chunk& chunk) const {
+void WorldGenerator::generate(Chunk& chunk, const Vector3* playerPos) const {
     const ChunkCoord c = chunk.coord();
     const int baseX = c.x * config::CHUNK_SIZE_X;
     const int baseY = c.y * config::CHUNK_SIZE_Y;
@@ -168,6 +168,21 @@ void WorldGenerator::generate(Chunk& chunk) const {
                                         TERRAIN_NOISE_NORMALIZE) + 1;
     if (baseY > TERRAIN_MAX_Y) return;
     if (baseY + config::CHUNK_SIZE_Y <= 0) return;
+
+    // Определяем, нужно ли генерировать пещеры.
+    // Если позиция игрока известна и чанк дальше 22 чанков — пещеры не генерируем.
+    bool generateCaves = true;
+    constexpr int CAVE_GEN_DISTANCE_CHUNKS = 22;
+    if (playerPos) {
+        const float chunkCenterX = (float)(baseX + config::CHUNK_SIZE_X / 2);
+        const float chunkCenterZ = (float)(baseZ + config::CHUNK_SIZE_Z / 2);
+        const float dx = chunkCenterX - playerPos->x;
+        const float dz = chunkCenterZ - playerPos->z;
+        const float distChunks = std::sqrt(dx * dx + dz * dz) / (float)config::CHUNK_SIZE_X;
+        if (distChunks > (float)CAVE_GEN_DISTANCE_CHUNKS) {
+            generateCaves = false;
+        }
+    }
 
     for (int lx = 0; lx < config::CHUNK_SIZE_X; ++lx) {
         for (int lz = 0; lz < config::CHUNK_SIZE_Z; ++lz) {
@@ -206,50 +221,52 @@ void WorldGenerator::generate(Chunk& chunk) const {
                 }
 
                 // ───────── Пещеры ─────────
-                if (block == BlockRegistry::STONE || block == BlockRegistry::DEEPSLATE) {
-                    const float wx_f = (float)wx;
-                    const float wy_f = (float)wy;
-                    const float wz_f = (float)wz;
+                if (generateCaves) {
+                    if (block == BlockRegistry::STONE || block == BlockRegistry::DEEPSLATE) {
+                        const float wx_f = (float)wx;
+                        const float wy_f = (float)wy;
+                        const float wz_f = (float)wz;
 
-                    bool isSafeDepth = (wy > btop + 2);
+                        bool isSafeDepth = (wy > btop + 2);
 
-                    if (isSafeDepth) {
-                        // 1. Большие залы (Cheese)
-                        float volume = m_noiseCaveVolume.GetNoise(wx_f, wy_f, wz_f);
-                        volume = (volume + 1.0f) * 0.5f; 
-                        
-                        if (wy < h - 4 && volume > 0.68f) {
-                            block = BLOCK_AIR;
-                        } 
-                        // 2. Тоннели (Цилиндрические и мягкие)
-                        else {
-                            float worm1 = m_caveWorm1.GetNoise(wx_f, wy_f, wz_f);
-                            float worm2 = m_caveWorm2.GetNoise(wx_f + 1000.0f, wy_f + 2000.0f, wz_f - 500.0f);
+                        if (isSafeDepth) {
+                            // 1. Большие залы (Cheese)
+                            float volume = m_noiseCaveVolume.GetNoise(wx_f, wy_f, wz_f);
+                            volume = (volume + 1.0f) * 0.5f; 
                             
-                            // Цилиндрическая формула (x^2 + y^2 < r^2) убирает квадратность
-                            float r2 = 0.0025f; // Радиус тоннеля (0.05f)
-                            
-                            // Плавно уменьшаем радиус у поверхности, чтобы не было резких дырок
-                            if (wy > h - 12) {
-                                float fade = (h - wy) / 12.0f;
-                                r2 *= std::max(0.0f, fade);
-                            }
-
-                            if (worm1 * worm1 + worm2 * worm2 < r2) {
+                            if (wy < h - 4 && volume > 0.68f) {
                                 block = BLOCK_AIR;
+                            } 
+                            // 2. Тоннели (Цилиндрические и мягкие)
+                            else {
+                                float worm1 = m_caveWorm1.GetNoise(wx_f, wy_f, wz_f);
+                                float worm2 = m_caveWorm2.GetNoise(wx_f + 1000.0f, wy_f + 2000.0f, wz_f - 500.0f);
+                                
+                                // Цилиндрическая формула (x^2 + y^2 < r^2) убирает квадратность
+                                float r2 = 0.0025f; // Радиус тоннеля (0.05f)
+                                
+                                // Плавно уменьшаем радиус у поверхности, чтобы не было резких дырок
+                                if (wy > h - 12) {
+                                    float fade = (h - wy) / 12.0f;
+                                    r2 *= std::max(0.0f, fade);
+                                }
+
+                                if (worm1 * worm1 + worm2 * worm2 < r2) {
+                                    block = BLOCK_AIR;
+                                }
                             }
                         }
                     }
-                }
 
-                // ───────── Входы (Мягкие спуски на поверхности) ─────────
-                if (block == BlockRegistry::GRASS || block == BlockRegistry::DIRT) {
-                    float worm1 = m_caveWorm1.GetNoise((float)wx, (float)wy, (float)wz);
-                    float worm2 = m_caveWorm2.GetNoise((float)wx + 1000.0f, (float)wy + 2000.0f, (float)wz - 500.0f);
-                    
-                    float r2 = 0.001f; // Радиус входа (0.031f)
-                    if (worm1 * worm1 + worm2 * worm2 < r2) {
-                        block = BLOCK_AIR;
+                    // ───────── Входы (Мягкие спуски на поверхности) ─────────
+                    if (block == BlockRegistry::GRASS || block == BlockRegistry::DIRT) {
+                        float worm1 = m_caveWorm1.GetNoise((float)wx, (float)wy, (float)wz);
+                        float worm2 = m_caveWorm2.GetNoise((float)wx + 1000.0f, (float)wy + 2000.0f, (float)wz - 500.0f);
+                        
+                        float r2 = 0.001f; // Радиус входа (0.031f)
+                        if (worm1 * worm1 + worm2 * worm2 < r2) {
+                            block = BLOCK_AIR;
+                        }
                     }
                 }
 

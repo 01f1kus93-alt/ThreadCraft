@@ -2,6 +2,7 @@
 #include "world/Chunk.hpp"
 #include "utils/FastNoiseLite.h"
 #include <cstdint>
+#include <raylib.h>
 
 namespace mc {
 
@@ -17,7 +18,7 @@ class WorldGenerator {
 public:
     explicit WorldGenerator(uint32_t seed);
 
-    void generate(Chunk& chunk) const;
+    void generate(Chunk& chunk, const Vector3* playerPos = nullptr) const;
     int heightAt(int wx, int wz) const noexcept;
     int bedrockTopAt(int wx, int wz) const noexcept;
     Biome getBiome(int wx, int wz, int height) const noexcept;

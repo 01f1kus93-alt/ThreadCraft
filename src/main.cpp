@@ -12,6 +12,7 @@
 #include "ui/Inventory.hpp"
 #include "ui/GamemodeMenu.hpp"
 #include "ui/HealthBar.hpp"
+#include "ui/MemoryHud.hpp"
 
 #include <raylib.h>
 #include <algorithm>
@@ -46,6 +47,8 @@ int main() {
 
     PauseMenu menu;
     menu.load();
+    menu.setLeafLayers(config::LEAVES_VISIBLE_LAYERS_DEFAULT);
+    renderer.setVisibleLeafLayers(config::LEAVES_VISIBLE_LAYERS_DEFAULT);
 
     HotbarRenderer hotbar;
     hotbar.load();
@@ -58,6 +61,8 @@ int main() {
 
     HealthBar healthbar;
     healthbar.load();
+
+    MemoryHud memHud;
 
     Player player;
     player.load();
@@ -78,13 +83,14 @@ int main() {
 
     while (!WindowShouldClose() && !quitRequested) {
         const float dt = std::min(GetFrameTime(), 0.05f);
+        memHud.update(dt);
 
         // ── Input ──
         if (IsKeyPressed(KEY_ESCAPE)) {
             if (invScreen.isOpen()) invScreen.close(player.inventory());
             else                     menu.handleEscape();
         }
-        if (IsKeyPressed(KEY_E) && !menu.isOpen()) {
+        if (IsKeyPressed(KEY_E) && !menu.isOpen() && player.gameMode() != GameMode::Spectator) {
             invScreen.toggle(player.inventory());
         }
 
@@ -98,8 +104,11 @@ int main() {
         gamemodeMenu.update(dt, player.gameMode());
         {
             GameMode newGm;
-            if (gamemodeMenu.takeModeChange(newGm))
+            if (gamemodeMenu.takeModeChange(newGm)) {
                 player.setGameMode(newGm);
+                if (newGm == GameMode::Spectator && invScreen.isOpen())
+                    invScreen.close(player.inventory());
+            }
         }
 
         // ── Compute gameplay AFTER input (prevents camera spike on UI open) ──
@@ -125,7 +134,7 @@ int main() {
         particles.update(dt);
 
         // ── 3D ──
-        renderer.beginFrame(player.camera().get());
+        renderer.beginFrame(player.camera().get(), world.renderDistance());
 
         BeginDrawing();
         ClearBackground(SKYBLUE);
@@ -141,7 +150,8 @@ int main() {
 
         // ── 2D UI ──
         if (!invScreen.isOpen()) {
-            hotbar.draw(player.inventory(), atlas);
+            if (player.gameMode() != GameMode::Spectator)
+                hotbar.draw(player.inventory(), atlas);
             healthbar.draw(player.health(), player.gameMode());
         }
         invScreen.update(player.inventory(), items, player.camera().get().position);
@@ -154,9 +164,14 @@ int main() {
             if (menu.takeRenderDistanceChange(rd)) {
                 world.setRenderDistance(rd);
             }
-            float fov = 75.0f;
+            float fov = player.baseFov();
             if (menu.takeFovChange(fov)) {
-                player.camera().get().fovy = fov;
+                player.setBaseFov(fov);
+                player.camera().get().fovy = fov; // live preview while paused
+            }
+            int leafLayers = 0;
+            if (menu.takeLeafLayersChange(leafLayers)) {
+                renderer.setVisibleLeafLayers(leafLayers);
             }
             if (action == MenuAction::Resume) menu.close();
             else if (action == MenuAction::Quit) quitRequested = true;
@@ -171,6 +186,8 @@ int main() {
                                    player.inventory().hotbar(player.inventory().selected()));
             renderer.drawFrameGraph();
         }
+
+        memHud.draw();
 
         EndDrawing();
     }

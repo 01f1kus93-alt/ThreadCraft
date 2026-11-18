@@ -29,6 +29,11 @@ World::World(uint32_t seed, int numThreads)
 }
 
 World::~World() {
+    {
+        std::lock_guard<std::mutex> lock(m_uploadMutex);
+        m_uploadStopping = true;
+    }
+    m_uploadCv.notify_all();
     m_pool.stop();
     for (auto& [key, chunk] : m_chunks) {
         if (chunk->hasOpaqueMesh && chunk->opaqueMesh.vertexCount > 0) UnloadMesh(chunk->opaqueMesh);
@@ -191,11 +196,19 @@ void World::requestChunksAround(ChunkCoord playerChunk, const Vector3* velocityD
         }
     }
 
+    // Сортируем по приоритету (ближайшие первыми), чтобы при лимите очереди
+    // в первую очередь создавались/генерировались видимые чанки.
+    std::sort(toRequest.begin(), toRequest.end(),
+              [&](const ChunkCoord& a, const ChunkCoord& b) { return score(a) < score(b); });
+
+    const int budget = std::max(0, config::MAX_PENDING_GENERATION - m_pendingGenerations.load());
+
     std::vector<std::pair<ChunkPtr, ChunkCoord>> created;
-    created.reserve(toRequest.size());
+    created.reserve((size_t)std::min(budget, (int)toRequest.size()));
     {
         std::unique_lock<std::shared_mutex> lock(m_chunksMutex);
         for (const auto& coord : toRequest) {
+            if ((int)created.size() >= budget) break;
             const int64_t key = math::chunkKey(coord);
             if (m_chunks.find(key) != m_chunks.end()) continue;
             auto chunk = std::make_shared<Chunk>(coord);
@@ -205,10 +218,12 @@ void World::requestChunksAround(ChunkCoord playerChunk, const Vector3* velocityD
         }
     }
 
+    m_pendingGenerations.fetch_add((int)created.size());
+
     for (auto& [chunkPtr, coord] : created) {
         const int prio = (int)score(coord);
         m_pool.enqueue(prio, [this, ch = chunkPtr, coord]() {
-            m_generator.generate(*ch);
+            m_generator.generate(*ch, &m_lastPlayerPos);
             ch->state = ChunkState::Generated;
             requestMesh(coord);
             for (int i = 0; i < 6; ++i) {
@@ -224,6 +239,7 @@ void World::requestChunksAround(ChunkCoord playerChunk, const Vector3* velocityD
                     requestMesh(nc);
                 }
             }
+            m_pendingGenerations.fetch_sub(1);
         });
     }
 }
@@ -245,10 +261,22 @@ void World::requestMesh(ChunkCoord coord) {
 
         if (!chunk->state.compare_exchange_strong(expected, ChunkState::Meshing)) return;
 
+        // Лимит очереди мешинга: при переполнении откатываем состояние, чанк
+        // повторно закажется при следующем обновлении (requestPendingMeshes).
+        if (m_pendingMeshes.load() >= config::MAX_PENDING_MESHES) {
+            chunk->state.store(expected);
+            return;
+        }
+        m_pendingMeshes.fetch_add(1);
+
         for (int i = 0; i < 6; ++i) {
             const ChunkCoord nc{coord.x + DX[i], coord.y + DY[i], coord.z + DZ[i]};
             auto nit = m_chunks.find(math::chunkKey(nc));
-            if (nit != m_chunks.end()) neighbors[i] = nit->second;
+            if (nit == m_chunks.end()) continue;
+            // Не читаем соседа, пока он ещё генерируется (иначе гонка с его set()).
+            const ChunkState ns = nit->second->state.load();
+            if (ns == ChunkState::Generated || ns == ChunkState::MeshReady || ns == ChunkState::Uploaded)
+                neighbors[i] = nit->second;
         }
     }
 
@@ -256,17 +284,38 @@ void World::requestMesh(ChunkCoord coord) {
 
     m_pool.enqueue(priority, [this, chunk, coord, neighbors]() {
         ChunkMeshes data = m_mesher->build(*chunk, neighbors, *g_textureAtlas);
-        {
-            std::lock_guard<std::mutex> lock(m_uploadMutex);
-            const int up = math::chunkDistanceSq(coord, m_lastPlayerChunk);
-            auto payload = std::make_unique<ChunkMeshes>(std::move(data));
-            m_uploadQueue.push({coord, std::move(payload), up});
-        }
+        const int up = math::chunkDistanceSq(coord, m_lastPlayerChunk);
+        auto payload = std::make_unique<ChunkMeshes>(std::move(data));
+        enqueueUpload(coord, std::move(payload), up);
         chunk->state = ChunkState::MeshReady;
+        m_pendingMeshes.fetch_sub(1);
         if (chunk->neighborDirty.exchange(false)) {
             requestMesh(coord);
         }
     });
+}
+
+void World::enqueueUpload(ChunkCoord coord, std::unique_ptr<ChunkMeshes> data, int priority) {
+    std::unique_lock<std::mutex> lock(m_uploadMutex);
+    m_uploadCv.wait(lock, [this] {
+        return m_uploadStopping || (int)m_uploadQueue.size() < config::MAX_UPLOAD_QUEUE;
+    });
+    if (m_uploadStopping) return;
+    m_uploadQueue.push({coord, std::move(data), priority});
+}
+
+void World::requestPendingMeshes() {
+    // Дозаказ мешей для чанков, пропущенных из-за лимита очереди мешинга.
+    if (m_pendingMeshes.load() >= config::MAX_PENDING_MESHES) return;
+    std::vector<ChunkCoord> pending;
+    {
+        std::shared_lock<std::shared_mutex> lock(m_chunksMutex);
+        for (const auto& [key, chunk] : m_chunks) {
+            if (chunk->state.load() == ChunkState::Generated)
+                pending.push_back(chunk->coord());
+        }
+    }
+    for (const auto& c : pending) requestMesh(c);
 }
 
 void World::processUploads(const TextureAtlas&) {
@@ -289,6 +338,7 @@ void World::processUploads(const TextureAtlas&) {
             data  = std::move(top.data);
             m_uploadQueue.pop();
         }
+        m_uploadCv.notify_all();
 
         ChunkPtr chunk;
         {
@@ -308,15 +358,26 @@ void World::processUploads(const TextureAtlas&) {
             mesh.vertices  = (float*)MemAlloc(sizeof(float) * data->opaque.vertices.size());
             mesh.normals   = (float*)MemAlloc(sizeof(float) * data->opaque.normals.size());
             mesh.texcoords = (float*)MemAlloc(sizeof(float) * data->opaque.texcoords.size());
+            mesh.texcoords2 = (float*)MemAlloc(sizeof(float) * data->opaque.texcoords2.size());
             mesh.colors    = (unsigned char*)MemAlloc(sizeof(unsigned char) * data->opaque.colors.size());
             mesh.indices   = (unsigned short*)MemAlloc(sizeof(unsigned short) * data->opaque.indices.size());
             memcpy(mesh.vertices,  data->opaque.vertices.data(),  sizeof(float) * data->opaque.vertices.size());
             memcpy(mesh.normals,   data->opaque.normals.data(),   sizeof(float) * data->opaque.normals.size());
             memcpy(mesh.texcoords, data->opaque.texcoords.data(), sizeof(float) * data->opaque.texcoords.size());
+            memcpy(mesh.texcoords2, data->opaque.texcoords2.data(), sizeof(float) * data->opaque.texcoords2.size());
             memcpy(mesh.colors,    data->opaque.colors.data(),    sizeof(unsigned char) * data->opaque.colors.size());
             memcpy(mesh.indices,   data->opaque.indices.data(),   sizeof(unsigned short) * data->opaque.indices.size());
             UploadMesh(&mesh, false);
-            // ВАЖНО: НЕ ОСВОБОЖДАЕМ mesh.colors, иначе DrawMesh не передаст цвета в шейдер!
+            // После UploadMesh геометрия уже в VRAM (VAO/VBO); CPU-массивы
+            // больше не нужны для отрисовки. Освобождаем их, чтобы не
+            // дублировать данные в ОЗУ. mesh.indices НЕ обнуляем: raylib
+            // использует `indices != NULL` как флаг indexed-отрисовки, а сами
+            // индексы берутся из GPU element-buffer, привязанного в VAO.
+            MemFree(mesh.vertices);  mesh.vertices  = nullptr;
+            MemFree(mesh.normals);   mesh.normals   = nullptr;
+            MemFree(mesh.texcoords); mesh.texcoords = nullptr;
+            MemFree(mesh.texcoords2); mesh.texcoords2 = nullptr;
+            MemFree(mesh.colors);    mesh.colors    = nullptr;
             chunk->opaqueMesh = mesh;
             chunk->hasOpaqueMesh = true;
         }
@@ -328,14 +389,21 @@ void World::processUploads(const TextureAtlas&) {
             mesh.vertices  = (float*)MemAlloc(sizeof(float) * data->transparent.vertices.size());
             mesh.normals   = (float*)MemAlloc(sizeof(float) * data->transparent.normals.size());
             mesh.texcoords = (float*)MemAlloc(sizeof(float) * data->transparent.texcoords.size());
+            mesh.texcoords2 = (float*)MemAlloc(sizeof(float) * data->transparent.texcoords2.size());
             mesh.colors    = (unsigned char*)MemAlloc(sizeof(unsigned char) * data->transparent.colors.size());
             mesh.indices   = (unsigned short*)MemAlloc(sizeof(unsigned short) * data->transparent.indices.size());
             memcpy(mesh.vertices,  data->transparent.vertices.data(),  sizeof(float) * data->transparent.vertices.size());
             memcpy(mesh.normals,   data->transparent.normals.data(),   sizeof(float) * data->transparent.normals.size());
             memcpy(mesh.texcoords, data->transparent.texcoords.data(), sizeof(float) * data->transparent.texcoords.size());
+            memcpy(mesh.texcoords2, data->transparent.texcoords2.data(), sizeof(float) * data->transparent.texcoords2.size());
             memcpy(mesh.colors,    data->transparent.colors.data(),    sizeof(unsigned char) * data->transparent.colors.size());
             memcpy(mesh.indices,   data->transparent.indices.data(),   sizeof(unsigned short) * data->transparent.indices.size());
             UploadMesh(&mesh, false);
+            MemFree(mesh.vertices);  mesh.vertices  = nullptr;
+            MemFree(mesh.normals);   mesh.normals   = nullptr;
+            MemFree(mesh.texcoords); mesh.texcoords = nullptr;
+            MemFree(mesh.texcoords2); mesh.texcoords2 = nullptr;
+            MemFree(mesh.colors);    mesh.colors    = nullptr;
             chunk->transparentMesh = mesh;
             chunk->hasTransparentMesh = true;
         }
@@ -370,6 +438,7 @@ void World::update(Vector3 playerPos) {
         const Vector3* vd = (Vector3LengthSqr(velocityDir) > 0.5f) ? &velocityDir : nullptr;
         requestChunksAround(playerChunk, vd);
         unloadDistantChunks(playerChunk);
+        requestPendingMeshes();
     }
 }
 

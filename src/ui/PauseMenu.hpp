@@ -25,6 +25,8 @@ public:
     void setRenderDistance(int v);                // инициализация значения слайдера
     bool takeFovChange(float& outFov);            // true один раз после отпускания слайдера FOV
     void setFov(float v);                         // инициализация значения слайдера FOV
+    bool takeLeafLayersChange(int& outValue);     // true один раз после отпускания слайдера слоёв листвы
+    void setLeafLayers(int v);                    // инициализация значения слайдера слоёв листвы
 
 private:
     void drawPauseScreen(int s, int sw, int sh, int mx, int my) const;
@@ -52,6 +54,13 @@ private:
     float m_dragStartFov        = 75.0f;
     bool  m_hasFovChange        = false;
     float m_pendingFov          = 75.0f;
+
+    // Слайдер видимых слоёв листвы
+    int  m_leafLayers             = config::LEAVES_VISIBLE_LAYERS_DEFAULT;
+    bool m_draggingLeafLayers     = false;
+    int  m_dragStartLeafLayers    = 0;
+    bool m_hasLeafLayersChange    = false;
+    int  m_pendingLeafLayers      = 0;
 };
 
 } // namespace mc

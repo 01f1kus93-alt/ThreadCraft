@@ -6,9 +6,9 @@ namespace mc {
 struct Frustum {
     Vector4 planes[6];
 
-    void update(const Camera3D& cam, float aspect) {
+    void update(const Camera3D& cam, float aspect, float farPlane) {
         Matrix matView = GetCameraMatrix(cam);
-        Matrix matProj = MatrixPerspective(cam.fovy * DEG2RAD, aspect, 0.1f, 1000.0f);
+        Matrix matProj = MatrixPerspective(cam.fovy * DEG2RAD, aspect, 0.1f, farPlane);
         Matrix m = MatrixMultiply(matView, matProj);
 
         // Left, Right, Bottom, Top, Near, Far

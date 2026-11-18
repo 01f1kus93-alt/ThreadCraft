@@ -3,6 +3,7 @@ in vec3 vertexPosition;
 in vec2 vertexTexCoord;
 in vec4 vertexColor;
 in vec3 vertexNormal; // <--- ДОБАВЛЕНО! Без этого шейдер не компилируется
+in vec2 vertexTexCoord2;
 
 out vec2 fragTexCoord;
 out vec4 fragColor;
@@ -10,6 +11,8 @@ out vec4 fragTileBounds;
 out vec2 fragRepeat;
 out vec3 fragWorldPos;
 flat out vec3 fragNormal;
+flat out int fragTileIndex;
+out float fragLeafDepth;
 
 uniform mat4 mvp;
 uniform vec4 tileUVs[256]; // Массив UV границ для каждого тайла
@@ -29,6 +32,8 @@ void main() {
     
     fragWorldPos = vertexPosition;
     fragNormal = vertexNormal;
+    fragTileIndex = tileIdx;
+    fragLeafDepth = vertexTexCoord2.x;
     
     gl_Position = mvp * vec4(vertexPosition, 1.0);
 }

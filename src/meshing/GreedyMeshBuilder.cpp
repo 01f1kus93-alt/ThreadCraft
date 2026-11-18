@@ -46,6 +46,16 @@ namespace {
         {160, 160, 160, 255}, // PosZ
     };
 
+    bool isLeaf(BlockID id) noexcept {
+        return id == BlockRegistry::LEAVES || id == BlockRegistry::BIRCH_LEAVES;
+    }
+
+    // face_id занимает 9 бит (block id * 2 + side, до 511). Глубину листвы
+    // пакуем в старшие биты, чтобы одинаковые грани с разной глубиной не
+    // сливались в один greedy-квад.
+    constexpr int FACE_MASK         = 511;  // (1 << 9) - 1
+    constexpr int LEAF_DEPTH_SHIFT  = 9;
+
 }
 
 ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
@@ -61,6 +71,77 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
         chunk.coord().y * config::CHUNK_SIZE_Y,
         chunk.coord().z * config::CHUNK_SIZE_Z
     };
+
+    // Глубина листвы: 0 = внешняя граница кроны (рядом с воздухом/не-листвой),
+    // 1 = следующий слой внутрь и т.д. Нужна шейдеру, чтобы только внешние
+    // слои были «дырявыми», а внутренность кроны — непрозрачной.
+    const int sy = size[1];
+    std::vector<uint8_t> leafDepth((size_t)config::CHUNK_VOLUME, 255);
+    auto leafIdx = [](int lx, int ly, int lz) -> int {
+        return (ly * config::CHUNK_SIZE_Z + lz) * config::CHUNK_SIZE_X + lx;
+    };
+    auto localLeafIdx = [&](int lx, int ly, int lz) -> int {
+        if (lx < 0 || lx >= config::CHUNK_SIZE_X ||
+            ly < 0 || ly >= sy ||
+            lz < 0 || lz >= config::CHUNK_SIZE_Z) return -1;
+        return leafIdx(lx, ly, lz);
+    };
+
+    {
+        static const int dirs[6][3] = {
+            {-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}
+        };
+        std::vector<int> queue;
+        queue.reserve(4096);
+
+        for (int ly = 0; ly < sy; ++ly) {
+            for (int lz = 0; lz < config::CHUNK_SIZE_Z; ++lz) {
+                for (int lx = 0; lx < config::CHUNK_SIZE_X; ++lx) {
+                    if (!isLeaf(chunk.getFast(lx, ly, lz))) continue;
+
+                    bool boundary = false;
+                    for (const auto& dir : dirs) {
+                        const BlockID n = getBlock(chunk, neighbors,
+                                                   lx + dir[0], ly + dir[1], lz + dir[2]);
+                        if (!isLeaf(n)) { boundary = true; break; }
+                    }
+                    if (boundary) {
+                        const int idx = leafIdx(lx, ly, lz);
+                        leafDepth[idx] = 0;
+                        queue.push_back(idx);
+                    }
+                }
+            }
+        }
+
+        size_t head = 0;
+        while (head < queue.size()) {
+            const int cur = queue[head++];
+            const uint8_t d = leafDepth[cur];
+            if (d >= 254) continue;
+
+            const int lx = cur % config::CHUNK_SIZE_X;
+            const int tmp = cur / config::CHUNK_SIZE_X;
+            const int lz = tmp % config::CHUNK_SIZE_Z;
+            const int ly = tmp / config::CHUNK_SIZE_Z;
+
+            for (const auto& dir : dirs) {
+                const int nx = lx + dir[0];
+                const int ny = ly + dir[1];
+                const int nz = lz + dir[2];
+                if (nx < 0 || nx >= config::CHUNK_SIZE_X ||
+                    ny < 0 || ny >= sy ||
+                    nz < 0 || nz >= config::CHUNK_SIZE_Z) continue;
+                if (!isLeaf(chunk.getFast(nx, ny, nz))) continue;
+
+                const int nidx = leafIdx(nx, ny, nz);
+                if (leafDepth[nidx] > d + 1) {
+                    leafDepth[nidx] = (uint8_t)(d + 1);
+                    queue.push_back(nidx);
+                }
+            }
+        }
+    }
 
     std::vector<int> mask;
     const int MAX_MERGE = std::min(config::MAX_MERGE, 255); 
@@ -85,19 +166,38 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
 
                     bool a_opq = (a != BLOCK_AIR) && BlockRegistry::get(a).isOpaque;
                     bool b_opq = (b != BLOCK_AIR) && BlockRegistry::get(b).isOpaque;
-                    bool a_leaf = (a == BlockRegistry::LEAVES), b_leaf = (b == BlockRegistry::LEAVES);
+                    bool a_leaf = isLeaf(a);
+                    bool b_leaf = isLeaf(b);
                     bool a_water = (a == BlockRegistry::WATER), b_water = (b == BlockRegistry::WATER);
                     int face_id = 0;
+                    int leafDepthValue = 0;
                     if (a != b) {
-                        if ((a_leaf && b_leaf) || (a_water && b_water)) {
-                            // Грани между листвой/водой не рисуем
+                        if (a_leaf && b_leaf) {
+                            // Между листвой рисуем только одну грань (ту, что
+                            // глубже внутрь кроны). Это даёт непрозрачный фон
+                            // за внешним «дырявым» слоем листвы.
+                            const int ai = localLeafIdx(x[0], x[1], x[2]);
+                            const int bi = localLeafIdx(x[0] + q[0], x[1] + q[1], x[2] + q[2]);
+                            const int da = (ai >= 0) ? leafDepth[ai] : 255;
+                            const int db = (bi >= 0) ? leafDepth[bi] : 255;
+
+                            if (ai >= 0 && bi >= 0) {
+                                if (db > da) { face_id = (int)b * 2 + 0; leafDepthValue = db; }
+                                else         { face_id = (int)a * 2 + 1; leafDepthValue = da; }
+                            } else if (ai < 0 && bi >= 0) {
+                                face_id = (int)b * 2 + 0; leafDepthValue = db;
+                            } else if (ai >= 0 && bi < 0) {
+                                face_id = (int)a * 2 + 1; leafDepthValue = da;
+                            }
+                        } else if (a_water && b_water) {
+                            // Грани между водой не рисуем
                         } else if (a != BLOCK_AIR && !b_opq) {
                             face_id = (int)a * 2 + 1;
                         } else if (b != BLOCK_AIR && !a_opq) {
                             face_id = (int)b * 2 + 0;
                         }
                     }
-                    mask[n] = face_id;
+                    mask[n] = (face_id != 0) ? (face_id | (leafDepthValue << LEAF_DEPTH_SHIFT)) : 0;
                 }
             }
 
@@ -109,7 +209,9 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
 
                     const int c = mask[n];
                     if (c != 0) {
-                        const bool mergeable = (BlockID)(c / 2) != BlockRegistry::WATER;
+                        const int face_id = c & FACE_MASK;
+                        const int leafDepthValue = c >> LEAF_DEPTH_SHIFT;
+                        const bool mergeable = (BlockID)(face_id / 2) != BlockRegistry::WATER;
 
                         int w = 1;
                         while (mergeable && i + w < sizeU && mask[n + w] == c && w < MAX_MERGE) ++w;
@@ -124,8 +226,8 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
                             ++h;
                         }
 
-                        BlockID b_id = c / 2;
-                        bool posFace = (c % 2) == 1;
+                        BlockID b_id = face_id / 2;
+                        bool posFace = (face_id % 2) == 1;
                         bool isTrans = BlockRegistry::get(b_id).isTransparent;
                         ChunkMeshData& target = isTrans ? meshes.transparent : meshes.opaque;
 
@@ -220,6 +322,9 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
                             target.colors.push_back(static_cast<unsigned char>(repeat_u));
                             target.colors.push_back(static_cast<unsigned char>(repeat_v));
                             target.colors.push_back(brightness);
+
+                            target.texcoords2.push_back((float)leafDepthValue);
+                            target.texcoords2.push_back(0.0f);
                         }
 
                         target.indices.push_back(base + 0); target.indices.push_back(base + 1); target.indices.push_back(base + 2);

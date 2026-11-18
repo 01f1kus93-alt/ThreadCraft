@@ -3,7 +3,7 @@
 namespace mc {
 
 Chunk::Chunk(ChunkCoord coord) : m_coord(coord) {
-    m_blocks.fill(BLOCK_AIR);
+    // Секции (m_sections) выделяются лениво в set(); пустые секции не занимают память.
     columnTop.fill(-1);
 
     // Явное приведение к float для устранения warning: narrowing conversion

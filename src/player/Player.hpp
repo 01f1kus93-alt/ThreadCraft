@@ -28,6 +28,9 @@ public:
     void setGameMode(GameMode m) noexcept;
     bool isFlying() const noexcept { return m_flying; }
 
+    float baseFov() const noexcept { return m_baseFov; }
+    void  setBaseFov(float v) noexcept { m_baseFov = v; }
+
     // skinTexture() and swingAngle() removed — first-person arm no longer rendered
 
     float health() const noexcept { return m_health; }
@@ -68,6 +71,10 @@ private:
     bool  m_flying = false;
     float m_spaceTapTimer = 0.0f;
     static constexpr float DOUBLE_TAP_WINDOW = 0.3f;
+
+    // ── FOV (user setting + smoothed speed boost) ──
+    float m_baseFov  = 75.0f;  // slider value
+    float m_speedFov = 0.0f;   // current speed-based boost
 };
 
 } // namespace mc

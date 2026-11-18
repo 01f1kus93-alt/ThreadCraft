@@ -51,7 +51,7 @@
         {
             "label": "Build & Run: minecraft_clone",
             "type": "shell",
-            "command": "${workspaceFolder}/build/minecraft_clone",
+            "command": "gamemoderun ${workspaceFolder}/build/minecraft_clone",
             "options": {
                 "cwd": "${workspaceFolder}/build"
             },

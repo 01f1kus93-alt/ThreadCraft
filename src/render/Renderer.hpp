@@ -14,7 +14,8 @@ public:
     bool load(const TextureAtlas& atlas);
     void unload();
 
-    void beginFrame(const Camera3D& cam);
+    void setVisibleLeafLayers(int layers);
+    void beginFrame(const Camera3D& cam, int renderDistanceChunks);
     void drawWorld(const World& world) const;
     void drawSelection(const RaycastResult& hit) const;
     void drawCrosshair() const;
@@ -27,6 +28,14 @@ public:
     Material m_chunkMat{};
     Frustum  m_frustum;
     int      m_mvpLoc = -1;
+    int      m_fogStartLoc = -1;
+    int      m_fogEndLoc   = -1;
+    int      m_fogColorLoc = -1;
+    int      m_camPosLoc   = -1;
+    int      m_leavesLodLoc = -1;
+    int      m_visibleLeafLayersLoc = -1;
+    int      m_visibleLeafLayers = config::LEAVES_VISIBLE_LAYERS_DEFAULT;
+    float    m_fogEnd = 384.0f;   // cached fog end (world blocks) for distance culling
     Vector3  m_camPos{};   // cached camera position for chunk culling
 
     std::array<float, GRAPH_SIZE> m_frameTimes{};

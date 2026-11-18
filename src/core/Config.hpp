@@ -9,12 +9,20 @@ inline constexpr int CHUNK_SIZE_Y = 256;
 inline constexpr int CHUNK_SIZE_Z = 16;
 inline constexpr int CHUNK_VOLUME = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
 
+// ─────────────── Subchunks (16×16×16) ───────────────
+// Чанк хранится как массив из CHUNK_SUBSECTIONS секций; секция, целиком
+// состоящая из воздуха, не выделяется вовсе (nullptr), что экономит ОЗУ
+// для верхних пустых слоёв чанка.
+inline constexpr int SUBSECTION_SIZE_Y = 16;
+inline constexpr int CHUNK_SUBSECTIONS = CHUNK_SIZE_Y / SUBSECTION_SIZE_Y; // 16
+inline constexpr int SUBSECTION_VOLUME = CHUNK_SIZE_X * SUBSECTION_SIZE_Y * CHUNK_SIZE_Z; // 4096
+
 // ─────────────── World ───────────────
-inline constexpr int  RENDER_DISTANCE        = 24;   // Значение по умолчанию; меняется рантайм-слайдером
+inline constexpr int  RENDER_DISTANCE        = 6;   // Значение по умолчанию; меняется рантайм-слайдером
 inline constexpr int  GENERATION_DISTANCE    = RENDER_DISTANCE + 1;   // legacy, заменено m_renderDistance
 inline constexpr int  RENDER_DISTANCE_UNLOAD = RENDER_DISTANCE;       // legacy, заменено m_renderDistance + 2
 inline constexpr int  RENDER_DISTANCE_MIN    = 4;
-inline constexpr int  RENDER_DISTANCE_MAX    = 32;
+inline constexpr int  RENDER_DISTANCE_MAX    = 96;
 inline constexpr int  SEED                   = 1337;
 
 // ─────────────── Terrain ───────────────
@@ -23,13 +31,34 @@ inline constexpr float TERRAIN_AMPLITUDE   = 16.0f;
 inline constexpr float TERRAIN_NOISE_SCALE = 0.02f;
 inline constexpr int   SEA_LEVEL           = 55;
 
+// Минимальная высота рельефа (округлённая вниз после нормализации FBm-шума).
+// Используется для culling'а подземных чанков на дальних дистанциях.
+inline constexpr int   TERRAIN_MIN_HEIGHT  = TERRAIN_BASE_HEIGHT - (int)(TERRAIN_AMPLITUDE * 1.6f); // 64 - 25 = 39
+
 // ─────────────── Threading ───────────────
-inline constexpr int MAX_WORKER_THREADS = 22;
+inline constexpr int MAX_WORKER_THREADS = 96;
+
+// ─────────────── Лимиты очередей (защита ОЗУ при быстром полёте) ───────────────
+inline constexpr int MAX_PENDING_GENERATION = 512; // чанков в генерации одновременно
+inline constexpr int MAX_PENDING_MESHES     = 384; // задач мешинга в очереди
+inline constexpr int MAX_UPLOAD_QUEUE       = 1024; // мешей, ожидающих аплоада на GPU
 
 // ─────────────── Rendering / Uploads ───────────────
-inline constexpr int   MAX_UPLOADS_PER_FRAME = 64;
-inline constexpr float MAX_UPLOAD_TIME_MS    = 2.0f;
+inline constexpr int   MAX_UPLOADS_PER_FRAME = 256;
+inline constexpr float MAX_UPLOAD_TIME_MS    = 4.0f;
 inline constexpr float UPDATE_INTERVAL_SEC   = 0.2f;
+inline constexpr float FOG_START_FRACTION    = 0.5f;
+
+// Свыше этой дистанции (в чанках) листва рендерится плоским непрозрачным
+// зелёным цветом вместо текстуры с alpha-discard — это убирает лаги от листвы.
+inline constexpr int LEAVES_LOD_DISTANCE_CHUNKS = 16;
+
+// Сколько слоёв листвы от внешней границы кроны остаются «дырявыми»
+// (с alpha-discard). Более глубокие слои рисуются непрозрачным, чуть более
+// тёмным зелёным — так крона перестаёт просвечивать насквозь.
+inline constexpr int LEAVES_VISIBLE_LAYERS_MIN     = 1;
+inline constexpr int LEAVES_VISIBLE_LAYERS_MAX     = 8;
+inline constexpr int LEAVES_VISIBLE_LAYERS_DEFAULT = 1;
 
 // ─────────────── Meshing ───────────────
 inline constexpr int MAX_MERGE = 128;  // Максимальный размер слияния граней в greedy meshing.

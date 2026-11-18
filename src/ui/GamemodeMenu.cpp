@@ -17,9 +17,9 @@ constexpr int BG_W = 125;
 constexpr int BG_H = 75;
 constexpr int SLOT_SIZE = 26;
 constexpr int ICON_SIZE = 16;
-constexpr int SLOT_Y   = 20;           // y-offset of slots within background
-constexpr int SLOT_X[4] = { 10, 41, 72, 103 };  // x offsets of 4 slots within background
-constexpr int TITLE_H    = 16;
+constexpr int SLOT_Y   = 30;           // y-offset of slots within background
+constexpr int SLOT_X[4] = { 3, 34, 65, 96 };  // x offsets of 4 slots within background
+constexpr int TITLE_H    = 12;
 constexpr int HINT_H     = 12;
 constexpr float FADE_TIME = 0.15f;
 
@@ -204,16 +204,16 @@ void GamemodeMenu::draw(const TextureAtlas& atlas) const {
     const unsigned char a = (unsigned char)(m_fade * 255.0f);
     const Color tintAll = { 255, 255, 255, a };
 
-    // ── Title above background ──
-    const char* title = MODE_NAMES[m_selected];
-    const int titleFs = TITLE_H * s;
-    const int titleW = MeasureText(title, titleFs);
-    DrawText(title, (sw - titleW) / 2, bgY - titleFs - 8 * s, titleFs,
-             Color{ 255, 255, 255, a });
-
     // ── Background from gamemode_switcher.png (src 0,0,125,75) ──
     drawSwitchPart(m_bgTex, 0, 0, BG_W, BG_H,
                    (float)bgX, (float)bgY, (float)bgPxW, (float)bgPxH, tintAll);
+
+    // ── Title above background (рисуется после фона, чтобы не перекрывался) ──
+    const char* title = MODE_NAMES[m_selected];
+    const int titleFs = TITLE_H * s;
+    const int titleW = MeasureText(title, titleFs);
+    DrawText(title, (sw - titleW) / 2, bgY - titleFs - 2 * s, titleFs,
+             Color{ 255, 255, 255, a });
 
     // ── Draw slots and icons ──
     for (int i = 0; i < 4; ++i) {

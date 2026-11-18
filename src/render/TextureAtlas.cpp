@@ -10,6 +10,8 @@ namespace {
 
     const Color kGrassTint  = { 145, 189, 89, 255 }; 
     const Color kLeavesTint = { 0x77, 0xAB, 0x2F, 255 };
+    // Берёзовая листва в Minecraft чуть светлее дубовой.
+    const Color kBirchLeavesTint = { 0x91, 0xB8, 0x52, 255 };
     const Color kWaterTint  = { 63, 118, 228, 255 };
 
     struct TileFile { int index; const char* file; const char* fallback; };
@@ -144,6 +146,8 @@ bool TextureAtlas::load(const std::string& blockDir) {
             bakeGrayscaleTint(tile, kGrassTint);
         } else if (tf.index == 10) {
             bakeGrayscaleTint(tile, kLeavesTint);
+        } else if (tf.index == 15) {
+            bakeGrayscaleTint(tile, kBirchLeavesTint);
         } else if (tf.index == 7) {
             bakeGrayscaleTint(tile, kWaterTint);
         }

@@ -30,8 +30,7 @@ const Button BUTTONS[] = {
     { "Mods",                    0,  48, 200, false, MenuAction::None },
     { "Options",                 0,  72,  98, true,  MenuAction::None, true },
     { "Open to LAN",           102,  72,  98, false, MenuAction::None },
-    { "Save and Quit to Title",  0,  96, 200, false, MenuAction::None },
-    { "Quit Game",               0, 120, 200, true,  MenuAction::Quit },
+    { "Save and Quit to Title",  0,  96, 200, true,  MenuAction::Quit },
 };
 
 constexpr const char* TITLE = "Game Menu";
@@ -108,6 +107,8 @@ constexpr int RD_MIN      = config::RENDER_DISTANCE_MIN;
 constexpr int RD_MAX      = config::RENDER_DISTANCE_MAX;
 constexpr int FOV_MIN     = 30;
 constexpr int FOV_MAX     = 110;
+constexpr int LEAF_LAYERS_MIN = config::LEAVES_VISIBLE_LAYERS_MIN;
+constexpr int LEAF_LAYERS_MAX = config::LEAVES_VISIBLE_LAYERS_MAX;
 
 // w — ширина в ЭКРАННЫХ пикселях
 void drawSliderTextured(const Texture2D& tex, const McFont& font,
@@ -170,6 +171,13 @@ float fovValueFromMouse(int mx, int sliderX, int sliderW, int handleW) {
                       (float)FOV_MIN, (float)FOV_MAX);
 }
 
+int leafLayersValueFromMouse(int mx, int sliderX, int sliderW, int handleW) {
+    float t = (float)(mx - sliderX - handleW / 2) / (float)(sliderW - handleW);
+    t = std::clamp(t, 0.0f, 1.0f);
+    return std::clamp(LEAF_LAYERS_MIN + (int)(t * (LEAF_LAYERS_MAX - LEAF_LAYERS_MIN) + 0.5f),
+                      LEAF_LAYERS_MIN, LEAF_LAYERS_MAX);
+}
+
 } // anonymous namespace
 
 // ─── PauseMenu ───────────────────────────────────────────────────────────
@@ -204,6 +212,7 @@ void PauseMenu::unload() {
     m_screen = Screen::Pause;
     m_draggingSlider = false;
     m_draggingFovSlider = false;
+    m_draggingLeafLayers = false;
 }
 
 bool PauseMenu::isOpen() const { return m_open; }
@@ -215,6 +224,7 @@ void PauseMenu::close() {
     m_screen = Screen::Pause;
     m_draggingSlider = false;
     m_draggingFovSlider = false;
+    m_draggingLeafLayers = false;
     DisableCursor();
     m_skipMouse = true;
 }
@@ -249,6 +259,13 @@ void PauseMenu::handleEscape() {
                 m_hasFovChange = true;
             }
         }
+        if (m_draggingLeafLayers) {
+            m_draggingLeafLayers = false;
+            if (m_leafLayers != m_dragStartLeafLayers) {
+                m_pendingLeafLayers = m_leafLayers;
+                m_hasLeafLayersChange = true;
+            }
+        }
         m_screen = Screen::Options;
         break;
     }
@@ -280,6 +297,20 @@ void PauseMenu::setFov(float v) {
     m_fov = v;
     m_hasFovChange = false;
     m_pendingFov = 0.0f;
+}
+
+bool PauseMenu::takeLeafLayersChange(int& outValue) {
+    if (!m_hasLeafLayersChange) return false;
+    outValue = m_pendingLeafLayers;
+    m_hasLeafLayersChange = false;
+    return true;
+}
+
+void PauseMenu::setLeafLayers(int v) {
+    v = std::clamp(v, LEAF_LAYERS_MIN, LEAF_LAYERS_MAX);
+    m_leafLayers = v;
+    m_hasLeafLayersChange = false;
+    m_pendingLeafLayers = 0;
 }
 
 MenuAction PauseMenu::update() {
@@ -387,7 +418,8 @@ MenuAction PauseMenu::update() {
     // ─── Graphics screen ──────────────────────────────────────────────
     if (m_screen == Screen::Graphics) {
         const int sliderX = (sw - SLIDER_W * s) / 2;
-        const int sliderY = 66 * s;
+        const int sliderY = 66 * s;    // дальность прорисовки
+        const int leafY   = 92 * s;    // слои листвы
         const int sliderW = SLIDER_W * s;
         const int handleW = HANDLE_W * s;
 
@@ -404,8 +436,21 @@ MenuAction PauseMenu::update() {
             }
         }
 
+        if (m_draggingLeafLayers) {
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                m_leafLayers = leafLayersValueFromMouse(mx, sliderX, sliderW, handleW);
+            }
+            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+                m_draggingLeafLayers = false;
+                if (m_leafLayers != m_dragStartLeafLayers) {
+                    m_pendingLeafLayers = m_leafLayers;
+                    m_hasLeafLayersChange = true;
+                }
+            }
+        }
+
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            // Слайдер
+            // Слайдер дальности прорисовки
             if (mx >= sliderX && mx < sliderX + sliderW &&
                 my >= sliderY && my < sliderY + SLIDER_H * s) {
                 m_draggingSlider = true;
@@ -413,8 +458,18 @@ MenuAction PauseMenu::update() {
                 m_renderDistance = sliderValueFromMouse(mx, sliderX, sliderW, handleW);
                 return MenuAction::None;
             }
-            // Done (y = 92 GUI-px)
-            const int doneY = 92 * s;
+
+            // Слайдер видимых слоёв листвы
+            if (mx >= sliderX && mx < sliderX + sliderW &&
+                my >= leafY && my < leafY + SLIDER_H * s) {
+                m_draggingLeafLayers = true;
+                m_dragStartLeafLayers = m_leafLayers;
+                m_leafLayers = leafLayersValueFromMouse(mx, sliderX, sliderW, handleW);
+                return MenuAction::None;
+            }
+
+            // Done (y = 118 GUI-px)
+            const int doneY = 118 * s;
             const int doneX = (sw - 200 * s) / 2;
             if (mx >= doneX && mx < doneX + 200 * s &&
                 my >= doneY && my < doneY + BTN_H * s) {
@@ -588,28 +643,55 @@ void PauseMenu::drawGraphicsScreen(int s, int cx, int mx, int my) const {
     const int sliderX = cx - 100 * s;
     const int sliderY = 66 * s;
     const int sliderW = SLIDER_W * s;
-    const float t = (float)(m_renderDistance - RD_MIN) / (float)(RD_MAX - RD_MIN);
     const int handleW = HANDLE_W * s;
-    const int handleX = sliderX + (int)(t * (float)(sliderW - handleW));
-    const bool handleHover = m_draggingSlider ||
-                             (mx >= handleX && mx < handleX + handleW &&
-                              my >= sliderY && my < sliderY + SLIDER_H * s);
 
-    char labelBuf[64];
-    snprintf(labelBuf, sizeof(labelBuf), "Render Distance: %d chunks", m_renderDistance);
+    {
+        const float t = (float)(m_renderDistance - RD_MIN) / (float)(RD_MAX - RD_MIN);
+        const int handleX = sliderX + (int)(t * (float)(sliderW - handleW));
+        const bool handleHover = m_draggingSlider ||
+                                 (mx >= handleX && mx < handleX + handleW &&
+                                  my >= sliderY && my < sliderY + SLIDER_H * s);
 
-    if (m_loaded) {
-        drawSliderTextured(m_widgetsTex, m_font, labelBuf,
-                           sliderX, sliderY, sliderW, t,
-                           true, handleHover, s);
-    } else {
-        drawSliderProcedural(labelBuf,
-                             sliderX, sliderY, sliderW, t,
-                             true, handleHover, s);
+        char labelBuf[64];
+        snprintf(labelBuf, sizeof(labelBuf), "Render Distance: %d chunks", m_renderDistance);
+
+        if (m_loaded) {
+            drawSliderTextured(m_widgetsTex, m_font, labelBuf,
+                               sliderX, sliderY, sliderW, t,
+                               true, handleHover, s);
+        } else {
+            drawSliderProcedural(labelBuf,
+                                 sliderX, sliderY, sliderW, t,
+                                 true, handleHover, s);
+        }
+    }
+
+    // ─── Слайдер видимых слоёв листвы ───
+    const int leafY = 92 * s;
+    {
+        const float t = (float)(m_leafLayers - LEAF_LAYERS_MIN) /
+                        (float)(LEAF_LAYERS_MAX - LEAF_LAYERS_MIN);
+        const int handleX = sliderX + (int)(t * (float)(sliderW - handleW));
+        const bool handleHover = m_draggingLeafLayers ||
+                                 (mx >= handleX && mx < handleX + handleW &&
+                                  my >= leafY && my < leafY + SLIDER_H * s);
+
+        char labelBuf[64];
+        snprintf(labelBuf, sizeof(labelBuf), "Foliage Layers: %d", m_leafLayers);
+
+        if (m_loaded) {
+            drawSliderTextured(m_widgetsTex, m_font, labelBuf,
+                               sliderX, leafY, sliderW, t,
+                               true, handleHover, s);
+        } else {
+            drawSliderProcedural(labelBuf,
+                                 sliderX, leafY, sliderW, t,
+                                 true, handleHover, s);
+        }
     }
 
     // ─── Done ───
-    const int doneY = 92 * s;
+    const int doneY = 118 * s;
     const int doneW = 200 * s;
     const int doneX = cx - 100 * s;
     const bool doneHover = mx >= doneX && mx < doneX + doneW &&

@@ -1,8 +1,10 @@
 #include "render/Renderer.hpp"
+#include "core/Config.hpp"
 #include <algorithm>
 #include <raymath.h>
 #include <rlgl.h>
 #include <cmath>
+#include <vector>
 
 namespace mc {
 
@@ -26,10 +28,23 @@ bool Renderer::load(const TextureAtlas& atlas) {
         }
         SetShaderValueV(m_shader, tileUVLoc, uvs, SHADER_UNIFORM_VEC4, 256);
     } else {
-        TraceLog(LOG_ERROR, "Uniform 'tileUVs' not found in shader!");
+        TraceLog(LOG_ERROR, "Uniform 'tileUVs' not found in shadeи!");
     }
 
     m_mvpLoc = GetShaderLocation(m_shader, "mvp");
+    m_fogStartLoc = GetShaderLocation(m_shader, "fogStart");
+    m_fogEndLoc   = GetShaderLocation(m_shader, "fogEnd");
+    m_fogColorLoc = GetShaderLocation(m_shader, "fogColor");
+    m_camPosLoc   = GetShaderLocation(m_shader, "camPos");
+    m_leavesLodLoc = GetShaderLocation(m_shader, "leavesLodDistance");
+    m_visibleLeafLayersLoc = GetShaderLocation(m_shader, "visibleLeafLayers");
+
+    if (m_leavesLodLoc != -1) {
+        const float leavesLod = (float)config::LEAVES_LOD_DISTANCE_CHUNKS * (float)config::CHUNK_SIZE_X;
+        SetShaderValue(m_shader, m_leavesLodLoc, &leavesLod, SHADER_UNIFORM_FLOAT);
+    } else {
+        TraceLog(LOG_WARNING, "Uniform 'leavesLodDistance' not found in shader!");
+    }
 
     m_chunkMat = LoadMaterialDefault();
     m_chunkMat.maps[MATERIAL_MAP_DIFFUSE].texture = atlas.texture();
@@ -46,13 +61,35 @@ void Renderer::unload() {
     m_chunkMat = Material{};
 }
 
-void Renderer::beginFrame(const Camera3D& cam) {
+void Renderer::setVisibleLeafLayers(int layers) {
+    m_visibleLeafLayers = std::clamp(layers, config::LEAVES_VISIBLE_LAYERS_MIN,
+                                      config::LEAVES_VISIBLE_LAYERS_MAX);
+}
+
+void Renderer::beginFrame(const Camera3D& cam, int renderDistanceChunks) {
     const float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
+
+    // Туман и far plane привязаны к дальности прорисовки (в чанках).
+    const float fogEnd   = (float)renderDistanceChunks * (float)config::CHUNK_SIZE_X;
+    const float fogStart = fogEnd * config::FOG_START_FRACTION;
+    const float farPlane = fogEnd + (float)config::CHUNK_SIZE_X;
+    m_fogEnd = fogEnd;
+
     const Matrix matView = GetCameraMatrix(cam);
-    const Matrix matProj = MatrixPerspective(cam.fovy * DEG2RAD, aspect, 0.1f, 1000.0f);
+    const Matrix matProj = MatrixPerspective(cam.fovy * DEG2RAD, aspect, 0.1f, farPlane);
     const Matrix matMVP  = MatrixMultiply(matView, matProj);
     if (m_mvpLoc != -1) SetShaderValueMatrix(m_shader, m_mvpLoc, matMVP);
-    m_frustum.update(cam, aspect);
+
+    if (m_fogStartLoc != -1) SetShaderValue(m_shader, m_fogStartLoc, &fogStart, SHADER_UNIFORM_FLOAT);
+    if (m_fogEndLoc   != -1) SetShaderValue(m_shader, m_fogEndLoc,   &fogEnd,   SHADER_UNIFORM_FLOAT);
+
+    const Vector4 sky = ColorNormalize(SKYBLUE);
+    const Vector3 fogColor = { sky.x, sky.y, sky.z };
+    if (m_fogColorLoc != -1) SetShaderValue(m_shader, m_fogColorLoc, &fogColor, SHADER_UNIFORM_VEC3);
+    if (m_camPosLoc   != -1) SetShaderValue(m_shader, m_camPosLoc,   &cam.position, SHADER_UNIFORM_VEC3);
+    if (m_visibleLeafLayersLoc != -1) SetShaderValue(m_shader, m_visibleLeafLayersLoc, &m_visibleLeafLayers, SHADER_UNIFORM_INT);
+
+    m_frustum.update(cam, aspect, farPlane);
     m_camPos = cam.position;
 
     m_frameTimes[m_frameIndex] = GetFrameTime();
@@ -99,16 +136,51 @@ void Renderer::drawWorld(const World& world) const {
         }
     }
 
+    // Один проход: дистанционный cull (полностью в тумане — не рисуем) +
+    // один frustum-тест на чанк, вместо двух обходов карты.
+    const float fogEndSq = m_fogEnd * m_fogEnd;
+    std::vector<const Chunk*> opaque;
+    std::vector<const Chunk*> transparent;
+    opaque.reserve(1024);
+    transparent.reserve(512);
+
+    // Дистанция (в блоках), после которой мы начинаем cull'ить подземные чанки.
+    // На больших расстояниях не видно смысла рендерить блоки ниже минимальной высоты
+    // ландшафта — игрок их всё равно не увидит.
+    constexpr int UNDERGROUND_CULL_DIST_BLOCKS = 16 * config::CHUNK_SIZE_X; // 256 блоков
+    constexpr float UNDERGROUND_CULL_DIST_SQ   = (float)(UNDERGROUND_CULL_DIST_BLOCKS * UNDERGROUND_CULL_DIST_BLOCKS);
+    constexpr int TERRAIN_MIN_Y = config::TERRAIN_MIN_HEIGHT;
+
     for (const auto& [key, chunkPtr] : world.chunks()) {
-        if (!chunkPtr->hasOpaqueMesh || chunkPtr->opaqueMesh.vertexCount == 0) continue;
+        const bool hasOpaque = chunkPtr->hasOpaqueMesh && chunkPtr->opaqueMesh.vertexCount > 0;
+        const bool hasTrans  = chunkPtr->hasTransparentMesh && chunkPtr->transparentMesh.vertexCount > 0;
+        if (!hasOpaque && !hasTrans) continue;
+
+        const Vector3 center = {
+            (chunkPtr->boxMin.x + chunkPtr->boxMax.x) * 0.5f,
+            (chunkPtr->boxMin.y + chunkPtr->boxMax.y) * 0.5f,
+            (chunkPtr->boxMin.z + chunkPtr->boxMax.z) * 0.5f
+        };
+        const float dx = center.x - m_camPos.x;
+        const float dy = center.y - m_camPos.y;
+        const float dz = center.z - m_camPos.z;
+        const float distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq > fogEndSq) continue;
+
+        // На дистанции > 16 чанков: если чанк целиком ниже минимальной высоты
+        // ландшафта — пропускаем его (игрок его не увидит).
+        if (distSq > UNDERGROUND_CULL_DIST_SQ) {
+            if (chunkPtr->boxMax.y <= TERRAIN_MIN_Y) continue;
+        }
+
         if (!isChunkVisible(chunkPtr->boxMin, chunkPtr->boxMax)) continue;
-        DrawMesh(chunkPtr->opaqueMesh, m_chunkMat, MatrixIdentity());
+
+        if (hasOpaque) opaque.push_back(chunkPtr.get());
+        if (hasTrans)  transparent.push_back(chunkPtr.get());
     }
-    for (const auto& [key, chunkPtr] : world.chunks()) {
-        if (!chunkPtr->hasTransparentMesh || chunkPtr->transparentMesh.vertexCount == 0) continue;
-        if (!isChunkVisible(chunkPtr->boxMin, chunkPtr->boxMax)) continue;
-        DrawMesh(chunkPtr->transparentMesh, m_chunkMat, MatrixIdentity());
-    }
+
+    for (const Chunk* c : opaque)      DrawMesh(c->opaqueMesh,      m_chunkMat, MatrixIdentity());
+    for (const Chunk* c : transparent) DrawMesh(c->transparentMesh, m_chunkMat, MatrixIdentity());
 }
 
 void Renderer::drawSelection(const RaycastResult& hit) const {
@@ -127,12 +199,12 @@ void Renderer::drawCrosshair() const {
 }
 
 void Renderer::drawDebugInfo(const World& world, const Camera3D& cam, const ItemStack& selected) const {
-    DrawFPS(10, 10);
-    DrawText(TextFormat("Chunks in memory: %zu", world.chunkCount()), 10, 40, 20, DARKGRAY);
+    DrawFPS(10, 40);
+    DrawText(TextFormat("Chunks in memory: %zu", world.chunkCount()), 10, 70, 20, DARKGRAY);
     DrawText(TextFormat("Camera: %.1f, %.1f, %.1f",
-                        cam.position.x, cam.position.y, cam.position.z), 10, 65, 20, DARKGRAY);
+                        cam.position.x, cam.position.y, cam.position.z), 10, 95, 20, DARKGRAY);
     if (!selected.isEmpty()) {
-        DrawText(TextFormat("%d x%d", selected.id, selected.count), 10, 115, 20, DARKGRAY);
+        DrawText(TextFormat("%d x%d", selected.id, selected.count), 10, 145, 20, DARKGRAY);
     }
 }
 
@@ -171,6 +243,5 @@ void Renderer::drawFrameGraph() const {
     }
 
     DrawText(TextFormat("%.2f ms", GetFrameTime() * 1000.0f), graphX, graphY + graphHeight + 5, 20, LIME);
-}
-
+};
 } // namespace mc

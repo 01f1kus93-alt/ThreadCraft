@@ -35,8 +35,8 @@ void Player::update(float dt, World& world, bool gameplayEnabled) {
     }
     m_inventory.scrollSelect((int)GetMouseWheelMove());
 
-    // Double-space flight toggle (Creative / Spectator only)
-    if (m_gameMode == GameMode::Creative || m_gameMode == GameMode::Spectator) {
+    // Double-space flight toggle (Creative only; Spectator is always flying)
+    if (m_gameMode == GameMode::Creative) {
         if (m_spaceTapTimer > 0.0f) m_spaceTapTimer -= dt;
         if (IsKeyPressed(KEY_SPACE)) {
             if (m_spaceTapTimer > 0.0f) {
@@ -63,6 +63,11 @@ void Player::applyPhysics(float dt, World& world) {
     const bool spectator = (m_gameMode == GameMode::Spectator);
     const bool flying    = m_flying;
     const bool noclip    = spectator; // Spectator always ignores collisions
+
+    // Mode speed multipliers: Spectator fly 3x, Creative fly 2x.
+    // Holding L Ctrl while flying doubles flight speed again.
+    const float flySpeed = (spectator ? 45.0f : 30.0f) *
+                           (IsKeyDown(KEY_LEFT_CONTROL) ? 2.0f : 1.0f);
 
     // ── Water check at feet position ──
     const int feetX = (int)std::floor(m_feetPos.x);
@@ -96,9 +101,9 @@ void Player::applyPhysics(float dt, World& world) {
 
     if (Vector3LengthSqr(wish) > 0.01f) {
         wish = Vector3Normalize(wish);
-        const float speed = flying ? 15.0f
+        const float speed = flying ? flySpeed
                            : inWater ? 2.5f
-                           : (m_sprinting ? 5.6f : 4.3f);
+                           : (m_sprinting ? 8.4f : 4.3f); // sprint 5.6 * 1.5
         m_velocity.x = wish.x * speed;
         m_velocity.z = wish.z * speed;
     } else {
@@ -112,7 +117,7 @@ void Player::applyPhysics(float dt, World& world) {
         float vy = 0.0f;
         if (IsKeyDown(KEY_SPACE))      vy += 1.0f;
         if (IsKeyDown(KEY_LEFT_SHIFT)) vy -= 1.0f;
-        m_velocity.y = vy * 15.0f;
+        m_velocity.y = vy * flySpeed;
         m_sprinting = false;
     } else if (inWater) {
         m_sprinting = false;
@@ -120,7 +125,7 @@ void Player::applyPhysics(float dt, World& world) {
             m_velocity.y = 3.0f;     // swim upward
         }
     } else {
-        m_sprinting = IsKeyDown(KEY_LEFT_SHIFT);
+        m_sprinting = IsKeyDown(KEY_LEFT_CONTROL);
         if (IsKeyPressed(KEY_SPACE) && m_onGround) {
             m_velocity.y = 8.5f;
             m_onGround = false;
@@ -174,6 +179,14 @@ void Player::applyPhysics(float dt, World& world) {
 
     // Sync camera to feet position
     m_camera.setPosition({ m_feetPos.x, m_feetPos.y + m_eyeHeight, m_feetPos.z });
+
+    // Speed-based FOV boost (subtle, smoothed).
+    const float hSpeed = std::sqrt(m_velocity.x * m_velocity.x +
+                                   m_velocity.z * m_velocity.z);
+    const float targetBoost = std::min(hSpeed * 0.22f, 10.0f);
+    const float smoothing   = 1.0f - std::exp(-dt * 6.0f);
+    m_speedFov += (targetBoost - m_speedFov) * smoothing;
+    m_camera.get().fovy = m_baseFov + m_speedFov;
 }
 
 bool Player::collidesWithWorld(const World& world) const {
