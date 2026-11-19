@@ -1,4 +1,5 @@
 #pragma once
+#include "core/Config.hpp"
 #include <vector>
 #include <cstdint>
 
@@ -18,6 +19,12 @@ struct ChunkMeshData {
 struct ChunkMeshes {
     ChunkMeshData opaque;
     ChunkMeshData transparent;
+
+    // Минимальная/максимальная высота (в локальных координатах чанка, 0..255)
+    // Вычисляется в GreedyMeshBuilder::build() по вершинам меша.
+    // Используется для «тугого» AABB при frustum culling.
+    int yMinLocal = 0;
+    int yMaxLocal = config::CHUNK_SIZE_Y - 1;
 };
 
 } // namespace mc

@@ -110,7 +110,28 @@ bool Renderer::isChunkVisible(Vector3 boxMin, Vector3 boxMax) const {
     return m_frustum.isBoxVisible(bmin, bmax);
 }
 
-void Renderer::drawWorld(const World& world) const {
+void Renderer::drawChunkBatch(const std::vector<VisChunk>& chunks, bool opaque) const {
+    if (chunks.empty()) return;
+
+    // Сырой проход через rlgl: шейдер + текстура ставятся один раз,
+    // дальше только bind VAO и draw на чанк.
+    rlEnableShader(m_shader.id);
+    rlActiveTextureSlot(0);
+    rlEnableTexture(m_chunkMat.maps[MATERIAL_MAP_DIFFUSE].texture.id);
+
+    for (const VisChunk& vc : chunks) {
+        const Mesh& m = opaque ? vc.c->opaqueMesh : vc.c->transparentMesh;
+        if (m.triangleCount == 0) continue;
+        rlEnableVertexArray(m.vaoId);
+        rlDrawVertexArrayElements(0, m.triangleCount * 3, nullptr);
+    }
+
+    rlDisableVertexArray();
+    rlDisableTexture();
+    rlDisableShader();
+}
+
+void Renderer::drawWorld(const World& world) {
     const bool debugFrustum = IsKeyDown(KEY_F9);
 
     // Temporary frustum-culling debug overlay (F9): green = drawn, red = culled.
@@ -136,17 +157,13 @@ void Renderer::drawWorld(const World& world) const {
         }
     }
 
-    // Один проход: дистанционный cull (полностью в тумане — не рисуем) +
-    // один frustum-тест на чанк, вместо двух обходов карты.
+    // Один проход: дистанционный cull + frustum-тест + сбор VisChunk с distSq.
     const float fogEndSq = m_fogEnd * m_fogEnd;
-    std::vector<const Chunk*> opaque;
-    std::vector<const Chunk*> transparent;
-    opaque.reserve(1024);
-    transparent.reserve(512);
+
+    m_opaqueVisible.clear();
+    m_transparentVisible.clear();
 
     // Дистанция (в блоках), после которой мы начинаем cull'ить подземные чанки.
-    // На больших расстояниях не видно смысла рендерить блоки ниже минимальной высоты
-    // ландшафта — игрок их всё равно не увидит.
     constexpr int UNDERGROUND_CULL_DIST_BLOCKS = 16 * config::CHUNK_SIZE_X; // 256 блоков
     constexpr float UNDERGROUND_CULL_DIST_SQ   = (float)(UNDERGROUND_CULL_DIST_BLOCKS * UNDERGROUND_CULL_DIST_BLOCKS);
     constexpr int TERRAIN_MIN_Y = config::TERRAIN_MIN_HEIGHT;
@@ -175,12 +192,21 @@ void Renderer::drawWorld(const World& world) const {
 
         if (!isChunkVisible(chunkPtr->boxMin, chunkPtr->boxMax)) continue;
 
-        if (hasOpaque) opaque.push_back(chunkPtr.get());
-        if (hasTrans)  transparent.push_back(chunkPtr.get());
+        if (hasOpaque) m_opaqueVisible.push_back({chunkPtr.get(), distSq});
+        if (hasTrans)  m_transparentVisible.push_back({chunkPtr.get(), distSq});
     }
 
-    for (const Chunk* c : opaque)      DrawMesh(c->opaqueMesh,      m_chunkMat, MatrixIdentity());
-    for (const Chunk* c : transparent) DrawMesh(c->transparentMesh, m_chunkMat, MatrixIdentity());
+    // Сортировка:
+    //   opaque — front-to-back (по возрастанию distSq, early-Z)
+    //   transparent — back-to-front (по убыванию distSq, корректный alpha-blending)
+    std::sort(m_opaqueVisible.begin(), m_opaqueVisible.end(),
+              [](const VisChunk& a, const VisChunk& b) { return a.distSq < b.distSq; });
+    std::sort(m_transparentVisible.begin(), m_transparentVisible.end(),
+              [](const VisChunk& a, const VisChunk& b) { return a.distSq > b.distSq; });
+
+    // Батчинг: один проход через rlgl вместо DrawMesh на каждый чанк
+    drawChunkBatch(m_opaqueVisible, /*opaque=*/true);
+    drawChunkBatch(m_transparentVisible, /*opaque=*/false);
 }
 
 void Renderer::drawSelection(const RaycastResult& hit) const {

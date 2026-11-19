@@ -342,6 +342,25 @@ ChunkMeshes GreedyMeshBuilder::build(const Chunk& chunk,
             }
         }
     }
+    // Вычисляем реальные Y-границы по вершинам для «тугого» AABB при frustum culling.
+    // Сканируем оба меша (opaque + transparent) и находим общий yMin/yMax.
+    {
+        int yMin = config::CHUNK_SIZE_Y, yMax = -1;
+        auto scanY = [&](const ChunkMeshData& m) {
+            for (size_t i = 1; i < m.vertices.size(); i += 3) {
+                const int y = (int)m.vertices[i] - worldBase[1];
+                if (y < yMin) yMin = y;
+                if (y > yMax) yMax = y;
+            }
+        };
+        scanY(meshes.opaque);
+        scanY(meshes.transparent);
+        if (yMin < config::CHUNK_SIZE_Y) { // хотя бы одна вершина была
+            meshes.yMinLocal = yMin;
+            meshes.yMaxLocal = yMax;
+        }
+    }
+
     return meshes;
 }
 } // namespace mc

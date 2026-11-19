@@ -5,6 +5,8 @@
 #include "ui/ItemStack.hpp"
 #include <raylib.h>
 #include <array>
+#include <vector>
+#include <algorithm>
 
 namespace mc {
 
@@ -16,13 +18,20 @@ public:
 
     void setVisibleLeafLayers(int layers);
     void beginFrame(const Camera3D& cam, int renderDistanceChunks);
-    void drawWorld(const World& world) const;
+    void drawWorld(const World& world);  // NOTE: не const — использует персистентные векторы
     void drawSelection(const RaycastResult& hit) const;
     void drawCrosshair() const;
     void drawDebugInfo(const World& world, const Camera3D& cam, const ItemStack& selected) const;
     void drawFrameGraph() const;
     private:
     static constexpr int GRAPH_SIZE = 120;
+
+    // ────────────────────────────────────
+    // Вспомогательная структура для сортировки с кешированным distSq
+    struct VisChunk {
+        const Chunk* c;
+        float distSq;
+    };
 
     Shader   m_shader{};
     Material m_chunkMat{};
@@ -41,7 +50,12 @@ public:
     std::array<float, GRAPH_SIZE> m_frameTimes{};
     int m_frameIndex = 0;
 
+    // Персистентные векторы (избегаем переаллокации каждый кадр)
+    std::vector<VisChunk> m_opaqueVisible;
+    std::vector<VisChunk> m_transparentVisible;
+
     bool isChunkVisible(Vector3 boxMin, Vector3 boxMax) const;
+    void drawChunkBatch(const std::vector<VisChunk>& chunks, bool opaque) const;
 };
 
 } // namespace mc

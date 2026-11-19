@@ -407,6 +407,12 @@ void World::processUploads(const TextureAtlas&) {
             chunk->transparentMesh = mesh;
             chunk->hasTransparentMesh = true;
         }
+        // Уточняем AABB по реальным Y-границам меша (tight AABB для frustum culling).
+        if (data) {
+            chunk->boxMin.y = (float)(chunk->coord().y * config::CHUNK_SIZE_Y + data->yMinLocal);
+            chunk->boxMax.y = (float)(chunk->coord().y * config::CHUNK_SIZE_Y + data->yMaxLocal + 1);
+        }
+
         chunk->state = ChunkState::Uploaded;
         ++uploads;
     }
