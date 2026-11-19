@@ -207,7 +207,7 @@ threadcraft/
 - [raylib](https://www.raylib.com/) — простая и мощная графическая библиотека.
 - [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) — генерация шума.
 - Вдохновение: Minecraft © Mojang Studios.
-- Проект написан при помощи **DeepSeek V4Pro** и **DeepSeek Flash** всего за **1 день**. 🚀
+- Основное ядро написано при помощи **DeepSeek V4Pro** и **DeepSeek Flash** всего за **1 день**. 🚀
 
 ---
 
